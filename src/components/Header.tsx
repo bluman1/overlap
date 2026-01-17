@@ -27,40 +27,13 @@ export function Header({ teamName, userName }: HeaderProps) {
             color: 'inherit',
           }}
         >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '2px',
-              width: '24px',
-              height: '24px',
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--accent-orange)',
-                borderRadius: '2px 0 0 0',
-              }}
-            />
-            <div
-              style={{
-                backgroundColor: 'var(--text-muted)',
-                borderRadius: '0 2px 0 0',
-              }}
-            />
-            <div
-              style={{
-                backgroundColor: 'var(--text-muted)',
-                borderRadius: '0 0 0 2px',
-              }}
-            />
-            <div
-              style={{
-                backgroundColor: 'var(--accent-orange)',
-                borderRadius: '0 0 2px 0',
-              }}
-            />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Overlap"
+            width={24}
+            height={24}
+            style={{ borderRadius: '4px' }}
+          />
           <span
             style={{
               fontFamily: 'var(--font-mono)',
