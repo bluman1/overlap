@@ -37,22 +37,30 @@ import { Header } from '@components/Header';
 </Layout>
 
 <style>
-  .user-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-md) 0;
+  .users-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .users-table th {
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .users-table td {
+    padding: var(--space-md);
     border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
   }
 
-  .user-row:last-child {
+  .users-table tr:last-child td {
     border-bottom: none;
-  }
-
-  .user-info {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
   }
 
   .user-name {
@@ -60,16 +68,12 @@ import { Header } from '@components/Header';
   }
 
   .user-email {
-    font-size: 0.875rem;
     color: var(--text-secondary);
-  }
-
-  .user-actions {
-    display: flex;
-    gap: var(--space-sm);
+    font-size: 0.875rem;
   }
 
   .role-badge {
+    display: inline-block;
     font-size: 0.75rem;
     padding: 2px 8px;
     border-radius: var(--radius-sm);
@@ -80,6 +84,21 @@ import { Header } from '@components/Header';
   .role-badge.admin {
     border-color: var(--accent-orange);
     color: var(--accent-orange);
+  }
+
+  .role-badge.member {
+    color: var(--text-secondary);
+  }
+
+  .action-cell {
+    text-align: right;
+  }
+
+  @media (max-width: 600px) {
+    .users-table th:nth-child(2),
+    .users-table td:nth-child(2) {
+      display: none;
+    }
   }
 </style>
 
@@ -122,22 +141,44 @@ import { Header } from '@components/Header';
         return;
       }
 
-      // Build user list - only show action buttons for admins
-      let html = users.map((user) => `
-        <div class="user-row" data-user-id="${user.id}">
-          <div class="user-info">
-            <span class="user-name">${user.name}</span>
-            <span class="user-email">${user.email || 'No email'}</span>
-          </div>
-          <div class="user-actions">
-            <span class="role-badge ${user.role}">${user.role}</span>
-            ${isCurrentUserAdmin ? (user.role === 'member'
-              ? `<button class="btn btn-secondary" onclick="promoteUser('${user.id}', '${user.name}')" style="font-size: 0.75rem; padding: 4px 8px;">Promote</button>`
-              : `<button class="btn btn-secondary" onclick="demoteUser('${user.id}', '${user.name}')" style="font-size: 0.75rem; padding: 4px 8px;">Demote</button>`
-            ) : ''}
-          </div>
-        </div>
+      // Sort users: admins first, then by name
+      const sortedUsers = [...users].sort((a, b) => {
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (a.role !== 'admin' && b.role === 'admin') return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      // Build table
+      let html = `
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              ${isCurrentUserAdmin ? '<th></th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      html += sortedUsers.map((user) => `
+        <tr data-user-id="${user.id}">
+          <td><span class="user-name">${user.name}</span></td>
+          <td><span class="user-email">${user.email || '—'}</span></td>
+          <td><span class="role-badge ${user.role}">${user.role}</span></td>
+          ${isCurrentUserAdmin ? `
+            <td class="action-cell">
+              ${user.role === 'member'
+                ? `<button class="btn btn-secondary" onclick="promoteUser('${user.id}', '${user.name}')" style="font-size: 0.75rem; padding: 4px 8px;">Promote</button>`
+                : `<button class="btn btn-secondary" onclick="demoteUser('${user.id}', '${user.name}')" style="font-size: 0.75rem; padding: 4px 8px;">Demote</button>`
+              }
+            </td>
+          ` : ''}
+        </tr>
       `).join('');
+
+      html += '</tbody></table>';
 
       // Add info message for non-admins
       if (!isCurrentUserAdmin) {
