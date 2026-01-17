@@ -52,7 +52,8 @@ jobs:
         if: steps.check.outputs.has_updates == 'true'
         run: |
           # Merge upstream/main into current branch
-          git merge upstream/main --no-edit -m "Sync with upstream overlapcode/overlap"
+          # --allow-unrelated-histories handles repos created via deploy button (not git fork)
+          git merge upstream/main --no-edit --allow-unrelated-histories -m "Sync with upstream overlapcode/overlap"
 
       - name: Push changes
         if: steps.check.outputs.has_updates == 'true'
