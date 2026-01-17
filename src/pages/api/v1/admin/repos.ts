@@ -1,26 +1,25 @@
 import type { APIContext } from 'astro';
-import { authenticateAny, requireAdmin, errorResponse, successResponse } from '@lib/auth/middleware';
-import { getTeamRepos } from '@lib/db/queries';
+import { authenticateAny, errorResponse, successResponse } from '@lib/auth/middleware';
+import { getTeamRepos, getUserRepos } from '@lib/db/queries';
 
 export async function GET(context: APIContext) {
   const { request } = context;
   const db = context.locals.runtime.env.DB;
 
-  // Authenticate and require admin (supports both web session and API tokens)
+  // Authenticate (supports both web session and API tokens)
   const authResult = await authenticateAny(request, db);
   if (!authResult.success) {
     return errorResponse(authResult.error, authResult.status);
   }
 
-  const adminCheck = requireAdmin(authResult.context);
-  if (!adminCheck.success) {
-    return errorResponse(adminCheck.error, adminCheck.status);
-  }
-
-  const { team } = authResult.context;
+  const { team, user } = authResult.context;
+  const isAdmin = user.role === 'admin';
 
   try {
-    const repos = await getTeamRepos(db, team.id);
+    // Admins see all team repos, non-admins only see repos they've worked on
+    const repos = isAdmin
+      ? await getTeamRepos(db, team.id)
+      : await getUserRepos(db, team.id, user.id);
 
     return successResponse({
       repos: repos.map((repo) => ({
@@ -30,6 +29,7 @@ export async function GET(context: APIContext) {
         is_public: repo.is_public === 1,
         created_at: repo.created_at,
       })),
+      is_admin: isAdmin,
     });
   } catch (error) {
     console.error('List repos error:', error);

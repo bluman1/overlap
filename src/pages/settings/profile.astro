@@ -89,8 +89,21 @@ import { Header } from '@components/Header';
 
         <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-lg);">
           <h3 style="font-size: 1rem; margin-bottom: var(--space-md);">Plugin Configuration</h3>
-          <p class="text-secondary" style="font-size: 0.875rem; margin-bottom: var(--space-md);">
-            To configure the Claude Code plugin, run this command in any Claude Code session:
+
+          <p class="text-secondary" style="font-size: 0.875rem; margin-bottom: var(--space-sm);">
+            <strong style="color: var(--text-primary);">1. Install the plugin</strong> (if not already installed):
+          </p>
+          <code style="
+            display: block;
+            background: var(--bg-elevated);
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            margin-bottom: var(--space-md);
+          ">/plugin marketplace add overlapcode/overlap</code>
+
+          <p class="text-secondary" style="font-size: 0.875rem; margin-bottom: var(--space-sm);">
+            <strong style="color: var(--text-primary);">2. Configure the plugin</strong> with your tokens:
           </p>
           <code style="
             display: block;

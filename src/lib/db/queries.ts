@@ -193,6 +193,21 @@ export async function getTeamRepos(db: D1Database, teamId: string): Promise<Repo
   return result.results;
 }
 
+export async function getUserRepos(db: D1Database, teamId: string, userId: string): Promise<Repo[]> {
+  // Get repos where the user has at least one session
+  const result = await db
+    .prepare(
+      `SELECT DISTINCT r.*
+       FROM repos r
+       JOIN sessions s ON s.repo_id = r.id
+       WHERE r.team_id = ? AND s.user_id = ?
+       ORDER BY r.name`
+    )
+    .bind(teamId, userId)
+    .all<Repo>();
+  return result.results;
+}
+
 // ============================================================================
 // SESSION QUERIES
 // ============================================================================

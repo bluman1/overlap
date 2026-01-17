@@ -13,10 +13,9 @@ import { Header } from '@components/Header';
         <h1 style="font-size: 1.5rem;">Repositories</h1>
       </div>
 
-      <div class="card" style="margin-bottom: var(--space-lg); background: var(--bg-elevated);">
+      <div id="info-box" class="card" style="margin-bottom: var(--space-lg); background: var(--bg-elevated);">
         <p class="text-secondary" style="font-size: 0.875rem;">
-          Repositories are automatically registered when team members work in them.
-          You can toggle visibility for each repository.
+          Loading...
         </p>
       </div>
 
@@ -89,6 +88,8 @@ import { Header } from '@components/Header';
   };
 
   const toast = document.getElementById('toast') as HTMLDivElement;
+  const infoBox = document.getElementById('info-box') as HTMLDivElement;
+  let isAdmin = false;
 
   function showToast(message: string) {
     toast.textContent = message;
@@ -103,16 +104,34 @@ import { Header } from '@components/Header';
 
     try {
       const response = await fetch('/api/v1/admin/repos');
-      const result = await response.json() as { data?: { repos: Repo[] }, error?: string };
+      const result = await response.json() as { data?: { repos: Repo[], is_admin: boolean }, error?: string };
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to load repositories');
       }
 
       const repos = result.data?.repos || [];
+      isAdmin = result.data?.is_admin ?? false;
+
+      // Update info box based on role
+      if (isAdmin) {
+        infoBox.innerHTML = `<p class="text-secondary" style="font-size: 0.875rem;">
+          As an admin, you can see all repositories connected to the team.
+          Repositories are automatically registered when team members work in them.
+          You can toggle visibility for each repository.
+        </p>`;
+      } else {
+        infoBox.innerHTML = `<p class="text-secondary" style="font-size: 0.875rem;">
+          These are the repositories you've worked on with the Overlap plugin.
+          Repositories are automatically registered when you start a session in them.
+        </p>`;
+      }
 
       if (repos.length === 0) {
-        container.innerHTML = '<p class="text-secondary">No repositories tracked yet. They will appear here when team members start working.</p>';
+        const emptyMessage = isAdmin
+          ? 'No repositories tracked yet. They will appear here when team members start working.'
+          : 'No repositories tracked yet. They will appear here when you start working with the Overlap plugin.';
+        container.innerHTML = `<p class="text-secondary">${emptyMessage}</p>`;
         return;
       }
 
@@ -122,6 +141,7 @@ import { Header } from '@components/Header';
             <span class="repo-name">${repo.name}</span>
             <span class="repo-url">${repo.remote_url || '(local only)'}</span>
           </div>
+          ${isAdmin ? `
           <div class="visibility-toggle">
             <label style="display: flex; align-items: center; gap: var(--space-xs); cursor: pointer; font-size: 0.875rem;">
               <input
@@ -133,10 +153,12 @@ import { Header } from '@components/Header';
               <span class="text-secondary">Public</span>
             </label>
           </div>
+          ` : ''}
         </div>
       `).join('');
     } catch (error) {
       container.innerHTML = `<p style="color: var(--accent-orange);">${error instanceof Error ? error.message : 'Failed to load repositories'}</p>`;
+      infoBox.innerHTML = '';
     }
   }
 

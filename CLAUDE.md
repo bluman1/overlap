@@ -253,7 +253,23 @@ wrangler pages deploy dist
 # Test a hook script manually
 echo '{"hook_event_name":"SessionStart","source":"startup","session_id":"test"}' | \
   python3 plugin/scripts/session-start.py
+
+# Clean up Cloudflare (delete all resources for fresh deploy)
+npx wrangler delete --name overlap          # Delete worker
+npx wrangler d1 delete overlap-db -y        # Delete D1 database
+npx wrangler kv namespace list              # List KV namespaces to get IDs
+npx wrangler kv namespace delete --namespace-id <id>  # Delete each KV namespace
 ```
+
+## Cloudflare Cleanup
+
+When user says "clean up Cloudflare", delete ALL these resources so they can do a fresh deploy:
+
+1. **Worker**: `npx wrangler delete --name overlap`
+2. **D1 Database**: `npx wrangler d1 delete overlap-db -y`
+3. **KV Namespaces**: List with `npx wrangler kv namespace list`, then delete each with `npx wrangler kv namespace delete --namespace-id <id>`
+
+The KV namespaces are typically named `overlap` and `overlap-session`.
 
 ## Environment Variables
 
