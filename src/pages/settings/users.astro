@@ -93,6 +93,7 @@ import { Header } from '@components/Header';
   };
 
   const toast = document.getElementById('toast') as HTMLDivElement;
+  let isCurrentUserAdmin = false;
 
   function showToast(message: string) {
     toast.textContent = message;
@@ -107,20 +108,22 @@ import { Header } from '@components/Header';
 
     try {
       const response = await fetch('/api/v1/admin/users');
-      const result = await response.json() as { data?: { users: User[] }, error?: string };
+      const result = await response.json() as { data?: { users: User[], is_admin: boolean }, error?: string };
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to load users');
       }
 
       const users = result.data?.users || [];
+      isCurrentUserAdmin = result.data?.is_admin || false;
 
       if (users.length === 0) {
         container.innerHTML = '<p class="text-secondary">No team members yet.</p>';
         return;
       }
 
-      container.innerHTML = users.map((user) => `
+      // Build user list - only show action buttons for admins
+      let html = users.map((user) => `
         <div class="user-row" data-user-id="${user.id}">
           <div class="user-info">
             <span class="user-name">${user.name}</span>
@@ -128,13 +131,34 @@ import { Header } from '@components/Header';
           </div>
           <div class="user-actions">
             <span class="role-badge ${user.role}">${user.role}</span>
-            ${user.role === 'member'
+            ${isCurrentUserAdmin ? (user.role === 'member'
               ? `<button class="btn btn-secondary" onclick="promoteUser('${user.id}', '${user.name}')" style="font-size: 0.75rem; padding: 4px 8px;">Promote</button>`
               : `<button class="btn btn-secondary" onclick="demoteUser('${user.id}', '${user.name}')" style="font-size: 0.75rem; padding: 4px 8px;">Demote</button>`
-            }
+            ) : ''}
           </div>
         </div>
       `).join('');
+
+      // Add info message for non-admins
+      if (!isCurrentUserAdmin) {
+        html += `
+          <div style="
+            margin-top: var(--space-lg);
+            padding: var(--space-md);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            text-align: center;
+          ">
+            <p class="text-secondary" style="font-size: 0.875rem; margin: 0;">
+              Only admins can manage team members.<br/>
+              Contact your team admin if you need changes.
+            </p>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
     } catch (error) {
       container.innerHTML = `<p style="color: var(--accent-orange);">${error instanceof Error ? error.message : 'Failed to load users'}</p>`;
     }

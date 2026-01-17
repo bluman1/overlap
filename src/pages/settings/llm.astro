@@ -20,7 +20,73 @@ import { Header } from '@components/Header';
         </p>
       </div>
 
-      <form id="llm-form" class="card">
+      <!-- Read-only view for non-admins -->
+      <div id="readonly-view" class="card" style="display: none;">
+        <div style="margin-bottom: var(--space-lg);">
+          <label style="display: block; margin-bottom: var(--space-sm); font-weight: 500;">
+            Provider
+          </label>
+          <div
+            id="readonly-provider"
+            style="
+              padding: var(--space-sm) var(--space-md);
+              background: var(--bg-elevated);
+              border: 1px solid var(--border-default);
+              border-radius: var(--radius-sm);
+              color: var(--text-secondary);
+            "
+          >-</div>
+        </div>
+
+        <div id="readonly-model-section" style="margin-bottom: var(--space-lg); display: none;">
+          <label style="display: block; margin-bottom: var(--space-sm); font-weight: 500;">
+            Model
+          </label>
+          <div
+            id="readonly-model"
+            style="
+              padding: var(--space-sm) var(--space-md);
+              background: var(--bg-elevated);
+              border: 1px solid var(--border-default);
+              border-radius: var(--radius-sm);
+              color: var(--text-secondary);
+            "
+          >-</div>
+        </div>
+
+        <div id="readonly-apikey-section" style="margin-bottom: var(--space-lg); display: none;">
+          <label style="display: block; margin-bottom: var(--space-sm); font-weight: 500;">
+            API Key
+          </label>
+          <div
+            id="readonly-apikey"
+            style="
+              padding: var(--space-sm) var(--space-md);
+              background: var(--bg-elevated);
+              border: 1px solid var(--border-default);
+              border-radius: var(--radius-sm);
+              color: var(--text-secondary);
+              font-family: var(--font-mono);
+            "
+          >••••••••••••••••</div>
+        </div>
+
+        <div style="
+          padding: var(--space-md);
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-sm);
+          text-align: center;
+        ">
+          <p class="text-secondary" style="font-size: 0.875rem; margin: 0;">
+            Only admins can modify LLM settings.<br/>
+            Contact your team admin if you need changes.
+          </p>
+        </div>
+      </div>
+
+      <!-- Editable form for admins -->
+      <form id="llm-form" class="card" style="display: none;">
         <div style="margin-bottom: var(--space-lg);">
           <label
             for="provider"
@@ -150,12 +216,27 @@ import { Header } from '@components/Header';
 
 <script>
   const form = document.getElementById('llm-form') as HTMLFormElement | null;
+  const readonlyView = document.getElementById('readonly-view') as HTMLDivElement | null;
   const providerSelect = document.getElementById('provider') as unknown as HTMLSelectElement | null;
   const modelInput = document.getElementById('model') as HTMLInputElement | null;
   const apiKeyInput = document.getElementById('api-key') as HTMLInputElement | null;
   const modelSection = document.getElementById('model-section') as HTMLDivElement | null;
   const apiKeySection = document.getElementById('api-key-section') as HTMLDivElement | null;
   const statusMessage = document.getElementById('status-message') as HTMLParagraphElement | null;
+
+  // Read-only view elements
+  const readonlyProvider = document.getElementById('readonly-provider') as HTMLDivElement | null;
+  const readonlyModel = document.getElementById('readonly-model') as HTMLDivElement | null;
+  const readonlyModelSection = document.getElementById('readonly-model-section') as HTMLDivElement | null;
+  const readonlyApikeySection = document.getElementById('readonly-apikey-section') as HTMLDivElement | null;
+
+  const providerLabels: Record<string, string> = {
+    heuristic: 'Heuristic (Free - Path-based)',
+    anthropic: 'Anthropic (Claude)',
+    openai: 'OpenAI (GPT)',
+    google: 'Google (Gemini)',
+    xai: 'xAI (Grok)',
+  };
 
   // Show/hide sections based on provider
   function updateSections() {
@@ -180,27 +261,57 @@ import { Header } from '@components/Header';
           provider: string;
           model: string | null;
           has_api_key: boolean;
+          is_admin: boolean;
         }
       };
 
       if (result.data) {
-        // Set provider
-        if (providerSelect) {
-          providerSelect.value = result.data.provider;
-        }
+        const isAdmin = result.data.is_admin;
+        const isHeuristic = result.data.provider === 'heuristic';
 
-        // Set model
-        if (modelInput && result.data.model) {
-          modelInput.value = result.data.model;
-        }
+        if (isAdmin) {
+          // Show editable form for admins
+          if (form) form.style.display = 'block';
+          if (readonlyView) readonlyView.style.display = 'none';
 
-        // Show placeholder if API key is set
-        if (apiKeyInput && result.data.has_api_key) {
-          apiKeyInput.placeholder = '••••••••••••••••';
-        }
+          // Set provider
+          if (providerSelect) {
+            providerSelect.value = result.data.provider;
+          }
 
-        // Update section visibility
-        updateSections();
+          // Set model
+          if (modelInput && result.data.model) {
+            modelInput.value = result.data.model;
+          }
+
+          // Show placeholder if API key is set
+          if (apiKeyInput && result.data.has_api_key) {
+            apiKeyInput.placeholder = '••••••••••••••••';
+          }
+
+          // Update section visibility
+          updateSections();
+        } else {
+          // Show read-only view for non-admins
+          if (form) form.style.display = 'none';
+          if (readonlyView) readonlyView.style.display = 'block';
+
+          // Set provider label
+          if (readonlyProvider) {
+            readonlyProvider.textContent = providerLabels[result.data.provider] || result.data.provider;
+          }
+
+          // Show model if not heuristic
+          if (!isHeuristic) {
+            if (readonlyModelSection) readonlyModelSection.style.display = 'block';
+            if (readonlyModel) {
+              readonlyModel.textContent = result.data.model || '(default)';
+            }
+            if (readonlyApikeySection) {
+              readonlyApikeySection.style.display = result.data.has_api_key ? 'block' : 'none';
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading LLM settings:', error);

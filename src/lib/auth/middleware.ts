@@ -153,6 +153,13 @@ export function requireAdmin(context: AuthContext): AuthResult {
 }
 
 /**
+ * Check if user is an admin.
+ */
+export function isAdmin(context: AuthContext): boolean {
+  return context.user.role === 'admin';
+}
+
+/**
  * Create a JSON error response.
  */
 export function errorResponse(error: string, status: number): Response {

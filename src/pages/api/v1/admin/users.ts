@@ -1,20 +1,16 @@
 import type { APIContext } from 'astro';
-import { authenticateAny, requireAdmin, errorResponse, successResponse } from '@lib/auth/middleware';
+import { authenticateAny, isAdmin, errorResponse, successResponse } from '@lib/auth/middleware';
 import { getTeamUsers } from '@lib/db/queries';
 
+// GET: List team members (accessible by all authenticated users)
 export async function GET(context: APIContext) {
   const { request } = context;
   const db = context.locals.runtime.env.DB;
 
-  // Authenticate and require admin (supports both web session and API tokens)
+  // Authenticate (supports both web session and API tokens)
   const authResult = await authenticateAny(request, db);
   if (!authResult.success) {
     return errorResponse(authResult.error, authResult.status);
-  }
-
-  const adminCheck = requireAdmin(authResult.context);
-  if (!adminCheck.success) {
-    return errorResponse(adminCheck.error, adminCheck.status);
   }
 
   const { team } = authResult.context;
@@ -32,6 +28,7 @@ export async function GET(context: APIContext) {
         stale_timeout_hours: user.stale_timeout_hours,
         created_at: user.created_at,
       })),
+      is_admin: isAdmin(authResult.context),
     });
   } catch (error) {
     console.error('List users error:', error);
