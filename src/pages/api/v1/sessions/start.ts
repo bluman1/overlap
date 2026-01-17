@@ -9,10 +9,10 @@ const StartSessionSchema = z.object({
   device_name: z.string(),
   hostname: z.string(),
   is_remote: z.boolean().default(false),
-  repo_name: z.string().optional(),
-  remote_url: z.string().optional(),
-  branch: z.string().optional(),
-  worktree: z.string().optional(),
+  repo_name: z.string().nullish(), // Can be undefined or null
+  remote_url: z.string().nullish(),
+  branch: z.string().nullish(),
+  worktree: z.string().nullish(),
 });
 
 export async function POST(context: APIContext) {
