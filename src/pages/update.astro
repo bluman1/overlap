@@ -1,0 +1,155 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { Header } from '@components/Header';
+
+// Fetch current version
+let currentVersion = 'unknown';
+try {
+  // Import version from the version endpoint module
+  currentVersion = '0.1.0'; // This matches what's in version.ts
+} catch (e) {
+  // Fallback
+}
+---
+
+<Layout title="Update Overlap">
+  <Header client:load />
+
+  <main class="container" style="padding-top: var(--space-xl); padding-bottom: var(--space-xl);">
+    <div style="max-width: 700px; margin: 0 auto;">
+      <h1 style="font-size: 1.75rem; margin-bottom: var(--space-sm);">Update Overlap</h1>
+      <p class="text-secondary" style="margin-bottom: var(--space-xl);">
+        Keep your instance up to date with the latest features and bug fixes.
+      </p>
+
+      <!-- Current Version -->
+      <div class="card" style="margin-bottom: var(--space-lg);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-xs);">
+              CURRENT VERSION
+            </div>
+            <code style="font-family: var(--font-mono); font-size: 1.25rem;">
+              v{currentVersion}
+            </code>
+          </div>
+          <a
+            href="https://github.com/overlapcode/overlap/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-secondary"
+            style="font-size: 0.75rem;"
+          >
+            View Releases
+          </a>
+        </div>
+      </div>
+
+      <!-- Update Instructions -->
+      <h2 style="font-size: 1.25rem; margin-bottom: var(--space-md);">How to Update</h2>
+
+      <div class="card" style="margin-bottom: var(--space-lg);">
+        <h3 style="font-size: 1rem; margin-bottom: var(--space-md); color: var(--accent-orange);">
+          Option 1: Manual Sync (Recommended)
+        </h3>
+        <p class="text-secondary" style="margin-bottom: var(--space-md); font-size: 0.875rem;">
+          Run these commands locally to sync your clone with the latest upstream changes:
+        </p>
+        <div
+          style="
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: var(--space-md);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            line-height: 1.8;
+            overflow-x: auto;
+          "
+        >
+          <div class="text-muted"># Clone your repo if you haven't already</div>
+          <div>git clone https://github.com/YOUR_USERNAME/overlap.git</div>
+          <div>cd overlap</div>
+          <br />
+          <div class="text-muted"># Add upstream and sync</div>
+          <div>git remote add upstream https://github.com/overlapcode/overlap.git</div>
+          <div>git fetch upstream</div>
+          <div>git merge upstream/main --no-edit</div>
+          <div>git push origin main</div>
+        </div>
+        <p class="text-muted" style="margin-top: var(--space-md); font-size: 0.75rem;">
+          After pushing, Cloudflare will automatically rebuild and deploy your instance.
+        </p>
+      </div>
+
+      <div class="card" style="margin-bottom: var(--space-lg);">
+        <h3 style="font-size: 1rem; margin-bottom: var(--space-md); color: var(--accent-blue);">
+          Option 2: Enable Auto-Updates
+        </h3>
+        <p class="text-secondary" style="margin-bottom: var(--space-md); font-size: 0.875rem;">
+          Set up a GitHub Action to automatically sync updates daily. Create this file in your repo:
+        </p>
+        <div
+          style="
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: var(--space-md);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            margin-bottom: var(--space-md);
+          "
+        >
+          <div class="text-muted">.github/workflows/sync-upstream.yml</div>
+        </div>
+        <p class="text-secondary" style="margin-bottom: var(--space-md); font-size: 0.875rem;">
+          Copy the workflow file from the upstream repository:
+        </p>
+        <a
+          href="https://github.com/overlapcode/overlap/blob/main/.github/workflows/sync-upstream.yml"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-secondary"
+          style="font-size: 0.75rem;"
+        >
+          View Workflow File
+        </a>
+        <p class="text-muted" style="margin-top: var(--space-md); font-size: 0.75rem;">
+          Once added, updates will be synced automatically. You can also trigger it manually from the Actions tab.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 1rem; margin-bottom: var(--space-md); color: var(--text-muted);">
+          Option 3: Fresh Deploy
+        </h3>
+        <p class="text-secondary" style="margin-bottom: var(--space-md); font-size: 0.875rem;">
+          If you prefer a clean slate, you can delete your current deployment and re-deploy:
+        </p>
+        <ol
+          style="
+            padding-left: var(--space-lg);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.8;
+          "
+        >
+          <li>Delete your cloned repo on GitHub</li>
+          <li>Delete the Worker and D1 database in Cloudflare Dashboard</li>
+          <li>Click the Deploy button again from the original repo</li>
+          <li>Re-run setup at <code>/setup</code></li>
+        </ol>
+        <p class="text-muted" style="margin-top: var(--space-md); font-size: 0.75rem;">
+          Note: This will reset all your data. Only use this if you're okay losing existing sessions.
+        </p>
+      </div>
+
+      <!-- Back link -->
+      <div style="margin-top: var(--space-xl); text-align: center;">
+        <a href="/" class="text-secondary" style="font-size: 0.875rem;">
+          &larr; Back to Dashboard
+        </a>
+      </div>
+    </div>
+  </main>
+</Layout>
