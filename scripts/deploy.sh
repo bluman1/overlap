@@ -190,11 +190,10 @@ echo "" >&2
 echo "🚀 Deploying to Cloudflare Pages..." >&2
 
 # Deploy as Pages project (not Workers) so functions/ directory works
+# Bindings are read from wrangler.toml (database_id and kv id were added above)
 npx wrangler pages deploy dist \
   --project-name overlap \
-  --branch main \
-  --d1 "DB=$D1_ID" \
-  --kv "SESSION=$KV_ID"
+  --branch main
 
 echo "" >&2
 echo "✅ Deployment complete!" >&2
