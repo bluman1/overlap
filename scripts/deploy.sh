@@ -187,8 +187,14 @@ echo "   KV_ID: $KV_ID" >&2
 node scripts/update-wrangler.cjs "$D1_ID" "$KV_ID"
 
 echo "" >&2
-echo "🚀 Deploying to Cloudflare..." >&2
-npx wrangler deploy
+echo "🚀 Deploying to Cloudflare Pages..." >&2
+
+# Deploy as Pages project (not Workers) so functions/ directory works
+npx wrangler pages deploy dist \
+  --project-name overlap \
+  --branch main \
+  --d1 "DB=$D1_ID" \
+  --kv "SESSION=$KV_ID"
 
 echo "" >&2
 echo "✅ Deployment complete!" >&2
