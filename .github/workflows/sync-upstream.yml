@@ -48,16 +48,23 @@ jobs:
             echo "has_updates=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Merge upstream changes
+      - name: Sync with upstream
         if: steps.check.outputs.has_updates == 'true'
         run: |
-          # Merge upstream/main into current branch
-          # --allow-unrelated-histories handles repos created via deploy button (not git fork)
-          git merge upstream/main --no-edit --allow-unrelated-histories -m "Sync with upstream overlapcode/overlap"
+          # Try normal merge first
+          if git merge upstream/main --no-edit -m "Sync with upstream overlapcode/overlap"; then
+            echo "Merge successful"
+          else
+            echo "Merge failed, resetting to upstream (this repo is a deployment vehicle)"
+            # Abort failed merge
+            git merge --abort || true
+            # Reset to upstream - safe because user data is in Cloudflare D1, not git
+            git reset --hard upstream/main
+          fi
 
       - name: Push changes
         if: steps.check.outputs.has_updates == 'true'
         run: |
-          git push origin main
+          git push origin main --force-with-lease
           echo "Successfully synced with upstream!"
           echo "Cloudflare will auto-deploy the changes."
