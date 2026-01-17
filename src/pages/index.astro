@@ -5,6 +5,7 @@ import { UpdateBanner } from '@components/UpdateBanner';
 import { Timeline } from '@components/Timeline';
 import { getSessionUser } from '@lib/auth/session';
 import { getTeam } from '@lib/db/queries';
+import { ensureMigrated } from '@lib/db/migrate';
 
 // Get session data from cookie
 let sessionData = null;
@@ -12,6 +13,10 @@ let teamExists = false;
 
 if (Astro.locals.runtime?.env?.DB) {
   const db = Astro.locals.runtime.env.DB;
+
+  // Ensure database is migrated before querying
+  await ensureMigrated(db);
+
   sessionData = await getSessionUser(Astro.cookies, db);
 
   // Check if a team exists (for non-authenticated visitors)

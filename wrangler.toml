@@ -24,3 +24,9 @@ binding = "SESSION"
 ENVIRONMENT = "production"
 
 # Note: TEAM_ENCRYPTION_KEY must be set as a secret during setup
+
+# Enable worker logs for debugging
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
