@@ -56,16 +56,22 @@ def main():
 
     try:
         # Start session on server
+        # Only include fields that have values (server rejects null for optional fields)
         request_data = {
             "session_id": session_id,
             "device_name": device_name,
             "hostname": hostname,
             "is_remote": is_remote,
-            "repo_name": git_info.get("repo_name"),
-            "remote_url": git_info.get("remote_url"),
-            "branch": git_info.get("branch"),
             "worktree": cwd,
         }
+        # Add optional git fields only if they have values
+        if git_info.get("repo_name"):
+            request_data["repo_name"] = git_info["repo_name"]
+        if git_info.get("remote_url"):
+            request_data["remote_url"] = git_info["remote_url"]
+        if git_info.get("branch"):
+            request_data["branch"] = git_info["branch"]
+
         print(f"[Overlap] Starting session with data: {json.dumps(request_data)}", file=sys.stderr)
 
         response = api_request("POST", "/api/v1/sessions/start", request_data)
@@ -80,10 +86,11 @@ def main():
             print(f"[Overlap] WARNING: No session_id in response, cannot save locally", file=sys.stderr)
 
         # Output context for Claude (shown in SessionStart)
+        working_in = git_info.get("repo_name") or os.path.basename(cwd) or cwd
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "SessionStart",
-                "additionalContext": f"[Overlap] Session tracking started. Working in: {git_info.get('repo_name', cwd)}"
+                "additionalContext": f"[Overlap] Session tracking started. Working in: {working_in}"
             }
         }
         print(json.dumps(output))
