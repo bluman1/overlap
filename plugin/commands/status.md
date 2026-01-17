@@ -43,6 +43,18 @@ curl -s -X GET "${SERVER_URL}/api/v1/users/me" \
   -H "X-Team-Token: ${TEAM_TOKEN}"
 ```
 
+## Check Version
+
+Check the server version:
+
+```bash
+# Get server version
+SERVER_URL=$(cat ~/.overlap/config.json 2>/dev/null | grep -o '"server_url"[^,]*' | cut -d'"' -f4)
+if [ -n "$SERVER_URL" ]; then
+  curl -s "${SERVER_URL}/api/v1/version"
+fi
+```
+
 ## Report Status
 
 Summarize:
@@ -51,3 +63,4 @@ Summarize:
 - Whether there's an active session
 - Connection status (connected/disconnected)
 - User info if connected
+- Server version (if available)

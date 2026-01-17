@@ -186,6 +186,41 @@ overlap/
 - `PUT /api/v1/admin/repos/:id` - Update repo
 - `PUT /api/v1/admin/team` - Update team settings
 - `PUT /api/v1/admin/llm` - Update LLM settings
+- `GET /api/v1/version` - Get version info
+
+## Updating
+
+### Update the Plugin
+
+In Claude Code, run:
+
+```
+/plugin update overlap@overlapcode-overlap
+```
+
+### Update the Service
+
+Your deployed service is connected to a fork of this repository. To update:
+
+**Option 1: Sync via GitHub UI**
+1. Go to your fork on GitHub (the one created during deploy)
+2. Click "Sync fork" → "Update branch"
+3. Cloudflare will auto-deploy the update
+
+**Option 2: Sync via CLI**
+```bash
+# In your forked repo
+git fetch upstream
+git merge upstream/main
+git push origin main
+```
+
+**Option 3: Redeploy**
+Click the Deploy button again. Note: This creates a new instance - you'll need to set up your team again.
+
+### Check Current Version
+
+Visit `https://your-instance.pages.dev/api/v1/version` to see your deployed version.
 
 ## License
 
