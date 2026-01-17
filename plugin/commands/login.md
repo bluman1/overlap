@@ -1,11 +1,11 @@
 ---
-description: Generate a magic link for web dashboard access
+description: Login to the Overlap web dashboard
 allowed-tools: Bash(cat:*), Bash(curl:*)
 ---
 
-# Generate Magic Link
+# Login to Dashboard
 
-Generate a temporary magic link that can be used to access the Overlap web dashboard.
+Generate a magic login link to access the Overlap web dashboard in your browser.
 
 ## Generate Link
 

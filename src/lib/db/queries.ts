@@ -111,6 +111,25 @@ export async function updateUserRole(db: D1Database, userId: string, role: 'admi
     .run();
 }
 
+export async function deleteUser(db: D1Database, userId: string): Promise<void> {
+  // Delete related data first (due to foreign key constraints)
+  // Delete user's web sessions
+  await db.prepare('DELETE FROM web_sessions WHERE user_id = ?').bind(userId).run();
+  // Delete user's magic links
+  await db.prepare('DELETE FROM magic_links WHERE user_id = ?').bind(userId).run();
+  // Delete user's activity (via sessions)
+  await db
+    .prepare('DELETE FROM activity WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?)')
+    .bind(userId)
+    .run();
+  // Delete user's sessions
+  await db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId).run();
+  // Delete user's devices
+  await db.prepare('DELETE FROM devices WHERE user_id = ?').bind(userId).run();
+  // Finally delete the user
+  await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+}
+
 // ============================================================================
 // DEVICE QUERIES
 // ============================================================================

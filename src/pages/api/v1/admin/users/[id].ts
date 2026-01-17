@@ -1,7 +1,7 @@
 import type { APIContext } from 'astro';
 import { z } from 'zod';
 import { authenticateAny, requireAdmin, errorResponse, successResponse } from '@lib/auth/middleware';
-import { getUserById } from '@lib/db/queries';
+import { getUserById, deleteUser } from '@lib/db/queries';
 
 const UpdateUserSchema = z.object({
   role: z.enum(['admin', 'member']).optional(),
@@ -92,5 +92,53 @@ export async function PUT(context: APIContext) {
   } catch (error) {
     console.error('Update user error:', error);
     return errorResponse('Failed to update user', 500);
+  }
+}
+
+export async function DELETE(context: APIContext) {
+  const { request, params } = context;
+  const userId = params.id as string;
+  const db = context.locals.runtime.env.DB;
+
+  // Authenticate (supports both web session and API tokens) and require admin
+  const authResult = await authenticateAny(request, db);
+  if (!authResult.success) {
+    return errorResponse(authResult.error, authResult.status);
+  }
+
+  const adminCheck = requireAdmin(authResult.context);
+  if (!adminCheck.success) {
+    return errorResponse(adminCheck.error, adminCheck.status);
+  }
+
+  // Cannot delete yourself
+  if (authResult.context.user.id === userId) {
+    return errorResponse('Cannot remove yourself', 400);
+  }
+
+  try {
+    // Get user to delete
+    const user = await getUserById(db, userId);
+    if (!user) {
+      return errorResponse('User not found', 404);
+    }
+
+    // If deleting an admin, ensure there's at least one other admin
+    if (user.role === 'admin') {
+      const adminCount = await db
+        .prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = 1")
+        .first<{ count: number }>();
+
+      if (adminCount && adminCount.count <= 1) {
+        return errorResponse('Cannot remove the only admin. Promote another user first.', 400);
+      }
+    }
+
+    await deleteUser(db, userId);
+
+    return successResponse({ message: 'User removed successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return errorResponse('Failed to remove user', 500);
   }
 }

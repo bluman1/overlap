@@ -29,6 +29,7 @@ export async function GET(context: APIContext) {
         created_at: user.created_at,
       })),
       is_admin: isAdmin(authResult.context),
+      current_user_id: authResult.context.user.id,
     });
   } catch (error) {
     console.error('List users error:', error);
