@@ -74,7 +74,7 @@ export function ActivityCard({ session }: ActivityCardProps) {
         alignItems: 'center',
         marginBottom: 'var(--space-md)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600 }}>{user.name}</span>
           <span className="text-muted">·</span>
           <span className="text-secondary">{device.name}</span>
@@ -82,14 +82,16 @@ export function ActivityCard({ session }: ActivityCardProps) {
             <span className="text-muted" style={{ fontSize: '0.75rem' }}>(remote)</span>
           )}
           <span className="text-muted">·</span>
-          <span className={`status-dot ${status}`} />
-          <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
-            {getStatusLabel(status)}
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span className={`status-dot ${status}`} />
+            <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+              {getStatusLabel(status)}
+            </span>
+          </span>
+          <span className="text-muted" style={{ fontSize: '0.875rem' }}>
+            {relativeTime}
           </span>
         </div>
-        <span className="text-muted" style={{ fontSize: '0.875rem' }}>
-          {relativeTime}
-        </span>
       </div>
 
       {/* Semantic scope badge */}
