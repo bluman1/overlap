@@ -19,53 +19,24 @@ Overlap is a **Claude Code plugin + self-hosted cloud service** that tracks what
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/overlapcode/overlap)
 
-Click the button above to deploy Overlap to your Cloudflare account.
-
-**Required Configuration:**
-
-1. Change **Deploy command** to: `npm run deploy`
-
-2. Add these **Environment variables**:
-   | Variable | Value | How to get it |
-   |----------|-------|---------------|
-   | `CLOUDFLARE_ACCOUNT_ID` | Your account ID | Dashboard URL: `dash.cloudflare.com/<THIS-IS-YOUR-ID>` |
-   | `CLOUDFLARE_API_TOKEN` | API token | [Create token](https://dash.cloudflare.com/profile/api-tokens) with D1 + KV permissions |
-   | `TEAM_ENCRYPTION_KEY` | Random 32-char string | Run `openssl rand -hex 16` |
-
-3. Click **Create and deploy**
-
-The deploy script will automatically create the D1 database and KV namespace if they don't exist.
+Click the button above to deploy Overlap to your Cloudflare account. The D1 database and KV namespace will be created automatically.
 
 After deployment, visit your URL and go to `/setup` to create your team.
 
 ### Option B: Manual Deploy
 
 ```bash
-# Clone the repository
+# Clone and install
 git clone https://github.com/overlapcode/overlap
 cd overlap
-
-# Install dependencies
 npm install
 
-# Create D1 database
-wrangler d1 create overlap-db
-# Copy the database_id to wrangler.toml
-
-# Create KV namespace for sessions
-wrangler kv:namespace create SESSION
-# Copy the id to wrangler.toml
-
-# Run migrations
-wrangler d1 execute overlap-db --remote --file=migrations/001_initial.sql
-
-# Set encryption key for API keys
-wrangler secret put TEAM_ENCRYPTION_KEY
-# Enter a 32-character secret key
-
-# Deploy
+# Build and deploy (D1/KV auto-created on first deploy)
 npm run build
-wrangler pages deploy dist
+wrangler pages deploy dist --project-name overlap
+
+# Run database migrations
+wrangler d1 execute overlap-db --remote --file=migrations/001_initial.sql
 ```
 
 ### 2. Set Up Your Team

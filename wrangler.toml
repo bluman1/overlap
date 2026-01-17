@@ -2,22 +2,17 @@ name = "overlap"
 compatibility_date = "2026-01-15"
 compatibility_flags = ["nodejs_compat"]
 
-# For Workers-based deployment (used by Deploy button)
-main = "dist/_worker.js/index.js"
-assets = { directory = "dist", binding = "ASSETS" }
+# Pages deployment - this tells Cloudflare to use Pages (not Workers)
+pages_build_output_dir = "dist"
 
-# D1 Database binding - auto-provisioned by Deploy button
+# D1 Database binding - auto-provisioned when no database_id is set
 [[d1_databases]]
 binding = "DB"
 database_name = "overlap-db"
-# database_id will be set automatically during deployment
-# For local dev, run: wrangler d1 create overlap-db
 
-# KV namespace for sessions (required by Astro Cloudflare adapter)
+# KV namespace for sessions - auto-provisioned when no id is set
 [[kv_namespaces]]
 binding = "SESSION"
-# id will be set automatically during deployment
-# For local dev, run: wrangler kv:namespace create SESSION
 
 # Scheduled trigger for stale session cleanup (runs every hour)
 [triggers]
