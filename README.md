@@ -19,7 +19,14 @@ Overlap is a **Claude Code plugin + self-hosted cloud service** that tracks what
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/overlapcode/overlap)
 
-Click the button above to deploy Overlap to your Cloudflare account. The deploy process will:
+Click the button above to deploy Overlap to your Cloudflare account.
+
+**Important:** In the deploy configuration, change the **Deploy command** from `npx wrangler deploy` to:
+```
+npm run deploy
+```
+
+The deploy process will:
 1. Fork the repository to your GitHub account
 2. Create a D1 database automatically
 3. Create a KV namespace for sessions
