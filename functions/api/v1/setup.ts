@@ -3,6 +3,7 @@ import { errorResponse, successResponse } from '@lib/auth/middleware';
 import { getTeam, createTeam, createUser } from '@lib/db/queries';
 import { generateId, generateToken } from '@lib/utils/id';
 import { hashPassword } from '@lib/utils/crypto';
+import { ensureMigrated } from '@lib/db/migrate';
 
 const SetupSchema = z.object({
   team_name: z.string().min(1).max(100),
@@ -15,8 +16,28 @@ type Env = {
   DB: D1Database;
 };
 
+// GET: Check setup status and ensure database is migrated
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { env } = context;
+
+  // Auto-migrate database
+  await ensureMigrated(env.DB);
+
+  // Check if team already exists
+  const existingTeam = await getTeam(env.DB);
+
+  return successResponse({
+    initialized: !!existingTeam,
+    team_name: existingTeam?.name ?? null,
+  });
+};
+
+// POST: Create team
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
+
+  // Auto-migrate database on first setup
+  await ensureMigrated(env.DB);
 
   // Check if team already exists
   const existingTeam = await getTeam(env.DB);

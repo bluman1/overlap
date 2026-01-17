@@ -128,6 +128,38 @@ import { Header } from '@components/Header';
 <script>
   const form = document.getElementById('setup-form') as HTMLFormElement;
 
+  // Initialize database and check setup status on page load
+  async function init() {
+    try {
+      const response = await fetch('/api/v1/setup');
+      const result = await response.json() as { data: { initialized: boolean; team_name: string | null } };
+
+      if (result.data.initialized) {
+        // Already set up, redirect to home
+        window.location.href = '/';
+        return;
+      }
+
+      // Database is ready, show the form
+      if (form) {
+        form.style.opacity = '1';
+      }
+    } catch (error) {
+      console.error('Failed to initialize:', error);
+      // Show form anyway, POST will handle migration
+      if (form) {
+        form.style.opacity = '1';
+      }
+    }
+  }
+
+  // Start with form slightly dimmed, then show when ready
+  if (form) {
+    form.style.opacity = '0.5';
+    form.style.transition = 'opacity 0.3s';
+  }
+  init();
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
