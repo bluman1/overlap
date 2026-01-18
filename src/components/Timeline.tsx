@@ -22,6 +22,7 @@ export function Timeline() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -38,6 +39,8 @@ export function Timeline() {
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load activity');
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -117,7 +120,17 @@ export function Timeline() {
       </div>
 
       {/* Sessions list */}
-      {sessions.length === 0 ? (
+      {isLoading ? (
+        <div
+          className="card"
+          style={{
+            textAlign: 'center',
+            padding: 'var(--space-xl)',
+          }}
+        >
+          <img src="/loading.gif" alt="Loading" width={48} height={48} style={{ opacity: 0.8 }} />
+        </div>
+      ) : sessions.length === 0 ? (
         <div
           className="card"
           style={{
