@@ -39,8 +39,9 @@ type ActivityCardProps = {
     id: string;
     user: { id: string; name: string };
     device: { id: string; name: string; is_remote: boolean };
-    repo: { id: string; name: string } | null;
+    repo: { id: string; name: string; remote_url: string | null } | null;
     branch: string | null;
+    worktree: string | null;
     status: 'active' | 'stale' | 'ended';
     started_at: string;
     last_activity_at: string;
@@ -51,6 +52,44 @@ type ActivityCardProps = {
     } | null;
   };
 };
+
+// Parse git remote URL to GitHub web URL
+function parseGitHubUrl(remoteUrl: string | null): string | null {
+  if (!remoteUrl) return null;
+
+  // Handle SSH format: git@github.com:owner/repo.git
+  const sshMatch = remoteUrl.match(/^git@github\.com:(.+?)(?:\.git)?$/);
+  if (sshMatch) {
+    return `https://github.com/${sshMatch[1]}`;
+  }
+
+  // Handle HTTPS format: https://github.com/owner/repo.git
+  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/(.+?)(?:\.git)?$/);
+  if (httpsMatch) {
+    return `https://github.com/${httpsMatch[1]}`;
+  }
+
+  // Handle plain HTTPS without .git
+  if (remoteUrl.startsWith('https://github.com/')) {
+    return remoteUrl.replace(/\.git$/, '');
+  }
+
+  return null;
+}
+
+// Get relative file path by stripping worktree prefix
+function getRelativeFilePath(absolutePath: string, worktree: string | null): string {
+  if (!worktree) return absolutePath;
+
+  // Normalize paths (remove trailing slashes)
+  const normalizedWorktree = worktree.replace(/\/+$/, '');
+
+  if (absolutePath.startsWith(normalizedWorktree + '/')) {
+    return absolutePath.slice(normalizedWorktree.length + 1);
+  }
+
+  return absolutePath;
+}
 
 function formatRelativeTime(dateString: string): string {
   // SQLite timestamps don't include timezone - they're UTC
@@ -105,8 +144,19 @@ function getStatusLabel(status: string): string {
 }
 
 export function ActivityCard({ session }: ActivityCardProps) {
-  const { user, device, repo, branch, status, last_activity_at, activity } = session;
+  const { user, device, repo, branch, worktree, status, last_activity_at, activity } = session;
   const relativeTime = useRelativeTime(last_activity_at);
+
+  // GitHub URL helpers
+  const githubBaseUrl = parseGitHubUrl(repo?.remote_url ?? null);
+  const repoUrl = githubBaseUrl;
+  const branchUrl = githubBaseUrl && branch ? `${githubBaseUrl}/tree/${branch}` : null;
+
+  const getFileUrl = (filePath: string): string | null => {
+    if (!githubBaseUrl || !branch) return null;
+    const relativePath = getRelativeFilePath(filePath, worktree);
+    return `${githubBaseUrl}/blob/${branch}/${relativePath}`;
+  };
 
   return (
     <div className="card" style={{ marginBottom: 'var(--space-md)' }}>
@@ -157,11 +207,26 @@ export function ActivityCard({ session }: ActivityCardProps) {
           {/* Files */}
           {activity.files && activity.files.length > 0 && (
             <div className="files-list">
-              {activity.files.slice(0, 5).map((file, i) => (
-                <span key={i} className="file-tag">
-                  {file.split('/').pop()}
-                </span>
-              ))}
+              {activity.files.slice(0, 5).map((file, i) => {
+                const fileUrl = getFileUrl(file);
+                const fileName = file.split('/').pop();
+                return fileUrl ? (
+                  <a
+                    key={i}
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="file-tag file-tag-link"
+                    title={getRelativeFilePath(file, worktree)}
+                  >
+                    {fileName}
+                  </a>
+                ) : (
+                  <span key={i} className="file-tag" title={file}>
+                    {fileName}
+                  </span>
+                );
+              })}
               {activity.files.length > 5 && (
                 <span className="text-muted">+{activity.files.length - 5} more</span>
               )}
@@ -184,9 +249,25 @@ export function ActivityCard({ session }: ActivityCardProps) {
             fontFamily: 'var(--font-mono)'
           }}
         >
-          {branch && <span>{branch}</span>}
+          {branch && (
+            branchUrl ? (
+              <a href={branchUrl} target="_blank" rel="noopener noreferrer" className="footer-link">
+                {branch}
+              </a>
+            ) : (
+              <span>{branch}</span>
+            )
+          )}
           {branch && repo && <span> · </span>}
-          {repo && <span>{repo.name}</span>}
+          {repo && (
+            repoUrl ? (
+              <a href={repoUrl} target="_blank" rel="noopener noreferrer" className="footer-link">
+                {repo.name}
+              </a>
+            ) : (
+              <span>{repo.name}</span>
+            )
+          )}
         </div>
       )}
     </div>

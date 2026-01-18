@@ -65,6 +65,7 @@ export async function GET(context: APIContext) {
               },
               repo: session.repo,
               branch: session.branch,
+              worktree: session.worktree,
               status: session.status,
               started_at: session.started_at,
               last_activity_at: session.last_activity_at,

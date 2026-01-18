@@ -306,7 +306,7 @@ export async function getRecentActivity(
         s.*,
         u.id as user_id, u.name as user_name,
         d.id as device_id, d.name as device_name, d.is_remote as device_is_remote,
-        r.id as repo_id, r.name as repo_name,
+        r.id as repo_id, r.name as repo_name, r.remote_url as repo_remote_url,
         a.id as activity_id, a.files, a.semantic_scope, a.summary, a.created_at as activity_created_at
       FROM sessions s
       JOIN users u ON s.user_id = u.id
@@ -349,6 +349,7 @@ export async function getRecentActivity(
       ? {
           id: row.repo_id as string,
           name: row.repo_name as string,
+          remote_url: row.repo_remote_url as string | null,
         }
       : null,
     latest_activity: row.activity_id
@@ -385,7 +386,7 @@ export async function checkForOverlaps(
       s.*,
       u.id as user_id, u.name as user_name,
       d.id as device_id, d.name as device_name, d.is_remote as device_is_remote,
-      r.id as repo_id, r.name as repo_name,
+      r.id as repo_id, r.name as repo_name, r.remote_url as repo_remote_url,
       a.id as activity_id, a.files, a.semantic_scope, a.summary, a.created_at as activity_created_at
     FROM sessions s
     JOIN users u ON s.user_id = u.id
@@ -442,6 +443,7 @@ export async function checkForOverlaps(
       ? {
           id: row.repo_id as string,
           name: row.repo_name as string,
+          remote_url: row.repo_remote_url as string | null,
         }
       : null,
     latest_activity: row.activity_id

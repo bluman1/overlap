@@ -195,11 +195,33 @@ a:hover {
   color: var(--text-secondary);
 }
 
-.file-tag::after {
+.file-tag-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+.file-tag-link:hover {
+  text-decoration: underline;
+}
+
+.file-tag::after,
+.file-tag-link::after {
   content: ' · ';
   color: var(--text-muted);
 }
 
-.file-tag:last-child::after {
+.file-tag:last-child::after,
+.file-tag-link:last-child::after {
   content: '';
+}
+
+/* Footer links (branch, repo) */
+.footer-link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  color: var(--accent-blue);
+  text-decoration: underline;
 }
