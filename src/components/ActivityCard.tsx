@@ -1,5 +1,39 @@
 import { useState, useEffect } from 'react';
 
+const WAITING_MESSAGES = [
+  "Warming up the keyboard...",
+  "Staring at the code thoughtfully...",
+  "Contemplating semicolons...",
+  "Caffeinating before coding...",
+  "Reading the docs (just kidding)...",
+  "Googling 'how to exit vim'...",
+  "Waiting for inspiration to strike...",
+  "Thinking about variable names...",
+  "Negotiating with the compiler...",
+  "Pretending to understand the codebase...",
+  "Strategically procrastinating...",
+  "Loading developer motivation...",
+  "Questioning life choices...",
+  "Waiting for the code to write itself...",
+  "In a staring contest with the cursor...",
+  "Debugging thoughts...",
+  "Compiling excuses...",
+  "Initializing genius mode...",
+  "Running git blame on past self...",
+  "Summoning the mass energy of Stack Overflow...",
+];
+
+function getWaitingMessage(sessionId: string): string {
+  // Simple hash to get consistent index from session ID
+  let hash = 0;
+  for (let i = 0; i < sessionId.length; i++) {
+    hash = ((hash << 5) - hash) + sessionId.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  const index = Math.abs(hash) % WAITING_MESSAGES.length;
+  return WAITING_MESSAGES[index];
+}
+
 type ActivityCardProps = {
   session: {
     id: string;
@@ -136,7 +170,7 @@ export function ActivityCard({ session }: ActivityCardProps) {
         </>
       ) : (
         <p className="text-muted" style={{ fontStyle: 'italic' }}>
-          Session started, waiting for activity...
+          {getWaitingMessage(session.id)}
         </p>
       )}
 
