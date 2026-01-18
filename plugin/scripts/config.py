@@ -65,9 +65,15 @@ def get_current_session() -> Optional[str]:
 
 def save_current_session(session_id: str) -> None:
     """Save the current session ID."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    with open(SESSION_FILE, "w") as f:
-        json.dump({"session_id": session_id}, f)
+    import sys
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(SESSION_FILE, "w") as f:
+            json.dump({"session_id": session_id}, f)
+        print(f"[Overlap] Config: Successfully wrote session file to {SESSION_FILE}", file=sys.stderr)
+    except Exception as e:
+        print(f"[Overlap] Config: FAILED to write session file: {e}", file=sys.stderr)
+        raise
 
 
 def clear_current_session() -> None:
