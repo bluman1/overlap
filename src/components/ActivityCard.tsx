@@ -19,13 +19,22 @@ type ActivityCardProps = {
 };
 
 function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
+  // SQLite timestamps don't include timezone - they're UTC
+  // Append 'Z' if not already present to parse as UTC
+  const utcDateString = dateString.includes('Z') || dateString.includes('+')
+    ? dateString
+    : dateString.replace(' ', 'T') + 'Z';
+
+  const date = new Date(utcDateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffSeconds / 60);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
+
+  // Handle future dates (shouldn't happen, but just in case)
+  if (diffSeconds < 0) return 'just now';
 
   if (diffSeconds < 60) return 'just now';
   if (diffMinutes < 60) return `${diffMinutes}m ago`;
@@ -94,32 +103,41 @@ export function ActivityCard({ session }: ActivityCardProps) {
         </div>
       </div>
 
-      {/* Semantic scope badge */}
-      {activity?.semantic_scope && (
-        <div style={{ marginBottom: 'var(--space-sm)' }}>
-          <span className="scope-badge">{activity.semantic_scope}</span>
-        </div>
-      )}
-
-      {/* Summary */}
-      {activity?.summary && (
-        <p className="text-primary" style={{ marginBottom: 'var(--space-md)' }}>
-          {activity.summary}
-        </p>
-      )}
-
-      {/* Files */}
-      {activity?.files && activity.files.length > 0 && (
-        <div className="files-list">
-          {activity.files.slice(0, 5).map((file, i) => (
-            <span key={i} className="file-tag">
-              {file.split('/').pop()}
-            </span>
-          ))}
-          {activity.files.length > 5 && (
-            <span className="text-muted">+{activity.files.length - 5} more</span>
+      {/* Activity content or empty state */}
+      {activity ? (
+        <>
+          {/* Semantic scope badge */}
+          {activity.semantic_scope && (
+            <div style={{ marginBottom: 'var(--space-sm)' }}>
+              <span className="scope-badge">{activity.semantic_scope}</span>
+            </div>
           )}
-        </div>
+
+          {/* Summary */}
+          {activity.summary && (
+            <p className="text-primary" style={{ marginBottom: 'var(--space-md)' }}>
+              {activity.summary}
+            </p>
+          )}
+
+          {/* Files */}
+          {activity.files && activity.files.length > 0 && (
+            <div className="files-list">
+              {activity.files.slice(0, 5).map((file, i) => (
+                <span key={i} className="file-tag">
+                  {file.split('/').pop()}
+                </span>
+              ))}
+              {activity.files.length > 5 && (
+                <span className="text-muted">+{activity.files.length - 5} more</span>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-muted" style={{ fontStyle: 'italic' }}>
+          Session started, waiting for activity...
+        </p>
       )}
 
       {/* Footer */}
