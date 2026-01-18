@@ -15,7 +15,7 @@ Help the user configure the Overlap plugin. You need to collect:
 1. Ask the user for their Overlap server URL
 2. Ask for their team token
 3. Ask for their user token
-4. Save the configuration to `~/.overlap/config.json`
+4. Save the configuration to `~/.claude/overlap/config.json`
 
 ## Save Configuration
 
@@ -29,9 +29,9 @@ Create the config file with this structure:
 }
 ```
 
-The file should be saved at: `~/.overlap/config.json`
+The file should be saved at: `~/.claude/overlap/config.json`
 
-Make sure to create the `~/.overlap` directory if it doesn't exist.
+Make sure to create the `~/.claude/overlap` directory if it doesn't exist (Claude Code recommends storing plugin data in `~/.claude/`).
 
 ## After Configuration
 

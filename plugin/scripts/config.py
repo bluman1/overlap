@@ -3,7 +3,9 @@ Overlap plugin configuration.
 
 This module loads configuration from:
 1. Environment variables (OVERLAP_*)
-2. Config file (~/.overlap/config.json)
+2. Config file (~/.claude/overlap/config.json)
+
+Claude Code recommends storing persistent state in ~/.claude/ for user-level data.
 """
 
 import json
@@ -11,7 +13,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
-CONFIG_DIR = Path.home() / ".overlap"
+# Store in ~/.claude/overlap/ as recommended by Claude Code docs
+CONFIG_DIR = Path.home() / ".claude" / "overlap"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 SESSION_FILE = CONFIG_DIR / "session.json"
 
@@ -46,9 +49,15 @@ def get_config() -> dict:
 
 def save_config(config: dict) -> None:
     """Save configuration to file."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(config, f, indent=2)
+    import sys
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=2)
+        print(f"[Overlap] Config: Saved config to {CONFIG_FILE}", file=sys.stderr)
+    except Exception as e:
+        print(f"[Overlap] Config: FAILED to save config: {e}", file=sys.stderr)
+        raise
 
 
 def get_current_session() -> Optional[str]:

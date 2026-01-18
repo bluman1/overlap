@@ -30,9 +30,10 @@ print(f"   User token: {'SET' if config.get('user_token') else 'NOT SET'}")
 print(f"   Is configured: {is_configured()}")
 print()
 
-# 2. Check if session file directory exists
+# 2. Check if directories exist
 print("2. Checking directories...")
 print(f"   Home dir: {Path.home()}")
+print(f"   ~/.claude exists: {(Path.home() / '.claude').exists()}")
 print(f"   Config dir exists: {CONFIG_DIR.exists()}")
 print(f"   Session file exists: {SESSION_FILE.exists()}")
 print()
@@ -76,7 +77,7 @@ print()
 if is_configured():
     print("6. Testing API connection...")
     try:
-        from api import api_request, get_hostname, get_device_name, get_git_info
+        from api import api_request, get_hostname, get_device_name
 
         hostname = get_hostname()
         device_name = get_device_name()
@@ -110,5 +111,6 @@ if is_configured():
         traceback.print_exc()
 else:
     print("6. Skipping API test (not configured)")
+    print("   Run /overlap:config first to set up the plugin")
 
 print("\n=== Test Complete ===")
