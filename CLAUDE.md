@@ -325,7 +325,7 @@ Users deploy Overlap by:
 | File | Location | Purpose |
 |------|----------|---------|
 | `package.json` | `version` field | NPM version |
-| `functions/api/v1/version.ts` | `VERSION` constant | API reports this |
+| `src/lib/version.ts` | `VERSION` constant | Used by API and footer |
 | `plugin/.claude-plugin/plugin.json` | `version` field | Plugin version |
 
 **Always update all three when releasing.**

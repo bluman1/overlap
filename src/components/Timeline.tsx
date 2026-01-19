@@ -90,6 +90,8 @@ export function Timeline() {
     };
   }, [fetchInitialData]);
 
+  const hasStale = sessions.some((s) => s.status === 'stale');
+
   return (
     <div>
       {/* Connection status */}
@@ -118,13 +120,28 @@ export function Timeline() {
             <span style={{ color: 'var(--accent-orange)' }}>{error}</span>
           </>
         )}
+        {hasStale && (
+          <button
+            onClick={() => setShowStale(!showStale)}
+            style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              padding: 0,
+            }}
+          >
+            {showStale ? 'Hide stale' : 'Show stale'}
+          </button>
+        )}
       </div>
 
       {/* Sessions list */}
       {(() => {
         const activeSessions = sessions.filter((s) => s.status !== 'stale');
         const displayedSessions = showStale ? sessions : activeSessions;
-        const hasStale = sessions.some((s) => s.status === 'stale');
 
         if (isLoading) {
           return (
@@ -142,87 +159,24 @@ export function Timeline() {
 
         if (displayedSessions.length === 0) {
           return (
-            <>
-              <div
-                className="card"
-                style={{
-                  textAlign: 'center',
-                  padding: 'var(--space-xl)',
-                }}
-              >
-                <p className="text-secondary">No active sessions</p>
-                <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: 'var(--space-sm)' }}>
-                  Activity will appear here when team members start coding
-                </p>
-              </div>
-              {hasStale && !showStale && (
-                <button
-                  onClick={() => setShowStale(true)}
-                  style={{
-                    width: '100%',
-                    padding: 'var(--space-md)',
-                    backgroundColor: 'var(--bg-surface)',
-                    border: '1px dashed var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    marginTop: 'var(--space-sm)',
-                  }}
-                >
-                  Show stale sessions
-                </button>
-              )}
-            </>
+            <div
+              className="card"
+              style={{
+                textAlign: 'center',
+                padding: 'var(--space-xl)',
+              }}
+            >
+              <p className="text-secondary">No active sessions</p>
+              <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: 'var(--space-sm)' }}>
+                Activity will appear here when team members start coding
+              </p>
+            </div>
           );
         }
 
-        return (
-          <>
-            {displayedSessions.map((session) => (
-              <ActivityCard key={session.id} session={session} />
-            ))}
-
-            {/* Stale sessions toggle */}
-            {hasStale && !showStale && (
-              <button
-                onClick={() => setShowStale(true)}
-                style={{
-                  width: '100%',
-                  padding: 'var(--space-md)',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px dashed var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  marginTop: 'var(--space-sm)',
-                }}
-              >
-                Show stale sessions
-              </button>
-            )}
-
-            {hasStale && showStale && (
-              <button
-                onClick={() => setShowStale(false)}
-                style={{
-                  width: '100%',
-                  padding: 'var(--space-md)',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px dashed var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  marginTop: 'var(--space-sm)',
-                }}
-              >
-                Hide stale sessions
-              </button>
-            )}
-          </>
-        );
+        return displayedSessions.map((session) => (
+          <ActivityCard key={session.id} session={session} />
+        ));
       })()}
     </div>
   );

@@ -1,5 +1,6 @@
 ---
 import '@/styles/global.css';
+import { VERSION } from '@lib/version';
 
 type Props = {
   title: string;
@@ -49,7 +50,7 @@ const { title, description = 'See where your team\'s heads are at' } = Astro.pro
       >
         <img src="/logo.png" alt="Overlap" width="20" height="20" style="opacity: 0.7;" />
         <span>Overlap</span>
-        <span style="color: var(--text-secondary);">— See where your team's heads are at</span>
+        <span style="color: var(--text-secondary);">v{VERSION}</span>
       </a>
     </footer>
   </body>
