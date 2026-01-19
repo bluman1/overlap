@@ -7,6 +7,8 @@ import type {
   Session,
   Activity,
   SessionWithDetails,
+  PluginLog,
+  PluginLogWithUser,
 } from './types';
 
 // ============================================================================
@@ -517,4 +519,124 @@ export async function cleanupExpiredTokens(db: D1Database): Promise<void> {
        WHERE expires_at < datetime('now')`
     )
     .run();
+}
+
+// ============================================================================
+// PLUGIN LOG QUERIES
+// ============================================================================
+
+export async function createPluginLog(
+  db: D1Database,
+  data: Pick<PluginLog, 'id' | 'user_id' | 'level' | 'hook' | 'session_id' | 'message' | 'data' | 'error'>
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO plugin_logs (id, user_id, level, hook, session_id, message, data, error)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      data.id,
+      data.user_id,
+      data.level,
+      data.hook,
+      data.session_id,
+      data.message,
+      data.data,
+      data.error
+    )
+    .run();
+}
+
+export async function createPluginLogsBatch(
+  db: D1Database,
+  logs: Pick<PluginLog, 'id' | 'user_id' | 'level' | 'hook' | 'session_id' | 'message' | 'data' | 'error'>[]
+): Promise<void> {
+  if (logs.length === 0) return;
+
+  // Use batch for efficiency
+  const statements = logs.map((log) =>
+    db
+      .prepare(
+        `INSERT INTO plugin_logs (id, user_id, level, hook, session_id, message, data, error)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        log.id,
+        log.user_id,
+        log.level,
+        log.hook,
+        log.session_id,
+        log.message,
+        log.data,
+        log.error
+      )
+  );
+
+  await db.batch(statements);
+}
+
+export async function getPluginLogs(
+  db: D1Database,
+  teamId: string,
+  options: {
+    userId?: string;
+    level?: string;
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<{ logs: PluginLogWithUser[]; total: number }> {
+  const { userId, level, limit = 100, offset = 0 } = options;
+
+  let whereClause = 'WHERE u.team_id = ?';
+  const params: unknown[] = [teamId];
+
+  if (userId) {
+    whereClause += ' AND pl.user_id = ?';
+    params.push(userId);
+  }
+
+  if (level) {
+    whereClause += ' AND pl.level = ?';
+    params.push(level);
+  }
+
+  // Get total count
+  const countResult = await db
+    .prepare(
+      `SELECT COUNT(*) as count
+       FROM plugin_logs pl
+       JOIN users u ON pl.user_id = u.id
+       ${whereClause}`
+    )
+    .bind(...params)
+    .first<{ count: number }>();
+
+  const total = countResult?.count ?? 0;
+
+  // Get logs with user info
+  const result = await db
+    .prepare(
+      `SELECT pl.*, u.name as user_name
+       FROM plugin_logs pl
+       JOIN users u ON pl.user_id = u.id
+       ${whereClause}
+       ORDER BY pl.created_at DESC
+       LIMIT ? OFFSET ?`
+    )
+    .bind(...params, limit, offset)
+    .all<PluginLogWithUser>();
+
+  return { logs: result.results, total };
+}
+
+export async function deleteOldPluginLogs(db: D1Database, daysToKeep: number = 30): Promise<number> {
+  const result = await db
+    .prepare(
+      `DELETE FROM plugin_logs
+       WHERE created_at < datetime('now', '-' || ? || ' days')`
+    )
+    .bind(daysToKeep)
+    .run();
+
+  return result.meta.changes ?? 0;
 }

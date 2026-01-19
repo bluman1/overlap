@@ -86,6 +86,23 @@ export type WebSession = {
   created_at: string;
 };
 
+export type PluginLog = {
+  id: string;
+  user_id: string;
+  level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+  hook: string | null;
+  session_id: string | null;
+  message: string;
+  data: string | null; // JSON
+  error: string | null; // JSON
+  created_at: string;
+};
+
+// Plugin log with user info for admin display
+export type PluginLogWithUser = PluginLog & {
+  user_name: string;
+};
+
 // Parsed activity with files as array
 export type ParsedActivity = Omit<Activity, 'files'> & {
   files: string[];

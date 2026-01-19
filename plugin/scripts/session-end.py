@@ -13,42 +13,55 @@ import os
 # Add scripts directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import logger
 from config import is_configured, get_current_session, clear_current_session
 from api import api_request
 
 
 def main():
+    # Set up logging context
+    logger.set_context(hook="SessionEnd")
+    logger.info("Hook started")
+
     # Read hook input from stdin
     try:
         input_data = json.load(sys.stdin)
-    except json.JSONDecodeError:
+        logger.info("Received input", input_keys=list(input_data.keys()))
+    except json.JSONDecodeError as e:
         # No input - try to end session anyway
-        pass
+        logger.warn("No valid JSON input", error=str(e))
 
     # Check if configured
     if not is_configured():
+        logger.info("Not configured, skipping")
         print("[Overlap] SessionEnd: Not configured, skipping", file=sys.stderr)
         sys.exit(0)
 
     # Get current session
     session_id = get_current_session()
     if not session_id:
+        logger.info("No active session to end")
         print("[Overlap] SessionEnd: No active session to end", file=sys.stderr)
         sys.exit(0)
 
+    logger.set_context(hook="SessionEnd", session_id=session_id)
+
     try:
         # End session on server
+        logger.info("Ending session on server")
         print(f"[Overlap] SessionEnd: Ending session {session_id}", file=sys.stderr)
         api_request("POST", f"/api/v1/sessions/{session_id}/end", {})
+        logger.info("Session ended successfully")
         print(f"[Overlap] SessionEnd: Successfully ended session on server", file=sys.stderr)
     except Exception as e:
-        # Log error with traceback
+        logger.error("Failed to end session on server", exc=e)
         import traceback
         print(f"[Overlap] Failed to end session: {e}", file=sys.stderr)
         print(f"[Overlap] Traceback: {traceback.format_exc()}", file=sys.stderr)
     finally:
         # Always clear local session file
         clear_current_session()
+        logger.info("Local session file cleared")
         print(f"[Overlap] SessionEnd: Cleared local session file", file=sys.stderr)
 
     sys.exit(0)

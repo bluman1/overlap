@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 from config import get_config
+import logger
 
 
 def api_request(
@@ -39,6 +40,7 @@ def api_request(
     config = get_config()
 
     if not config.get("server_url"):
+        logger.warn("API request skipped - no server_url configured", endpoint=endpoint)
         raise Exception("Overlap server URL not configured")
 
     url = f"{config['server_url'].rstrip('/')}{endpoint}"
@@ -53,19 +55,30 @@ def api_request(
 
     request = Request(url, data=body, headers=headers, method=method)
 
+    # Start request logging
+    req_ctx = logger.log_request(method, url, len(body) if body else 0)
+    req_ctx.log_start()
+
     try:
         with urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode())
+            response_data = json.loads(response.read().decode())
+            req_ctx.log_success(response.status)
+            return response_data
     except HTTPError as e:
         error_body = e.read().decode()
         try:
             error_data = json.loads(error_body)
-            raise Exception(error_data.get("error", f"HTTP {e.code}"))
+            error_msg = error_data.get("error", f"HTTP {e.code}")
+            req_ctx.log_error(e.code, error_msg=error_msg)
+            raise Exception(error_msg)
         except json.JSONDecodeError:
+            req_ctx.log_error(e.code, error_msg=error_body[:200])
             raise Exception(f"HTTP {e.code}: {error_body}")
     except URLError as e:
+        req_ctx.log_error(0, exc=e)
         raise Exception(f"Connection error: {e.reason}")
-    except socket.timeout:
+    except socket.timeout as e:
+        req_ctx.log_error(0, exc=e)
         raise Exception("Request timed out")
 
 
@@ -116,6 +129,8 @@ def get_git_info(cwd: str) -> dict:
             if remote.endswith(".git"):
                 remote = remote[:-4]
             info["repo_name"] = remote.split("/")[-1]
+        else:
+            logger.debug("Git remote not found", cwd=cwd, stderr=result.stderr.strip())
 
         # Get current branch
         result = subprocess.run(
@@ -127,9 +142,13 @@ def get_git_info(cwd: str) -> dict:
         )
         if result.returncode == 0:
             info["branch"] = result.stdout.strip()
+        else:
+            logger.debug("Git branch not found", cwd=cwd, stderr=result.stderr.strip())
 
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    except subprocess.TimeoutExpired:
+        logger.warn("Git command timed out", cwd=cwd)
+    except FileNotFoundError:
+        logger.debug("Git not installed or not in PATH")
 
     return info
 

@@ -98,6 +98,19 @@ CREATE TABLE IF NOT EXISTS web_sessions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Plugin logs table
+CREATE TABLE IF NOT EXISTS plugin_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  level TEXT NOT NULL CHECK (level IN ('DEBUG', 'INFO', 'WARN', 'ERROR')),
+  hook TEXT,
+  session_id TEXT,
+  message TEXT NOT NULL,
+  data TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
 CREATE INDEX IF NOT EXISTS idx_users_token ON users(user_token);
@@ -109,6 +122,9 @@ CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_activity_session_id ON activity(session_id);
 CREATE INDEX IF NOT EXISTS idx_magic_links_token ON magic_links(token);
 CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_plugin_logs_user ON plugin_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_plugin_logs_level ON plugin_logs(level);
+CREATE INDEX IF NOT EXISTS idx_plugin_logs_created ON plugin_logs(created_at DESC);
 `;
 
 export async function ensureMigrated(db: D1Database): Promise<void> {

@@ -11,62 +11,75 @@ import sys
 import os
 from pathlib import Path
 
-# IMMEDIATE debug logging - this runs before anything else
-print(f"[Overlap] === SessionStart hook STARTED ===", file=sys.stderr)
-print(f"[Overlap] Python: {sys.executable}", file=sys.stderr)
-print(f"[Overlap] Script: {__file__}", file=sys.stderr)
-print(f"[Overlap] Home dir: {Path.home()}", file=sys.stderr)
-print(f"[Overlap] CWD: {os.getcwd()}", file=sys.stderr)
-
 # Add scripts directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import logger
 from config import is_configured, save_current_session, get_current_session
 from api import api_request, get_hostname, get_device_name, get_git_info, is_remote_session
 
 
 def main():
+    # Set up logging context
+    logger.set_context(hook="SessionStart")
+    logger.info("Hook started",
+                python=sys.executable,
+                script=__file__,
+                home=str(Path.home()),
+                cwd=os.getcwd())
+
+    # Also log to stderr for immediate visibility
+    print(f"[Overlap] === SessionStart hook STARTED ===", file=sys.stderr)
+
     # Read hook input from stdin
-    print(f"[Overlap] Reading stdin...", file=sys.stderr)
     try:
         input_data = json.load(sys.stdin)
-        print(f"[Overlap] Received input: {json.dumps(input_data)}", file=sys.stderr)
+        logger.info("Received input", input_keys=list(input_data.keys()))
     except json.JSONDecodeError as e:
+        logger.error("Failed to parse stdin JSON", exc=e)
         print(f"[Overlap] JSON decode error: {e}", file=sys.stderr)
         sys.exit(0)
 
     # Check if this is a startup or resume
     source = input_data.get("source", "")
-    print(f"[Overlap] Source: {source}", file=sys.stderr)
     if source not in ("startup", "resume"):
+        logger.info("Skipping - not startup/resume", source=source)
         print(f"[Overlap] Skipping - source is not startup/resume", file=sys.stderr)
         sys.exit(0)
 
     # Check if configured
-    print(f"[Overlap] Checking configuration...", file=sys.stderr)
     if not is_configured():
+        logger.info("Not configured - exiting")
         print(f"[Overlap] NOT CONFIGURED - exiting. Run /overlap:config first", file=sys.stderr)
         sys.exit(0)
-    print(f"[Overlap] Configuration OK", file=sys.stderr)
+    logger.info("Configuration OK")
 
     # If resuming, check if we already have a session
     if source == "resume":
-        print(f"[Overlap] Resume - checking for existing session...", file=sys.stderr)
         existing_session = get_current_session()
         if existing_session:
+            logger.info("Resuming existing session", session_id=existing_session)
             print(f"[Overlap] Found existing session {existing_session}, exiting", file=sys.stderr)
             sys.exit(0)
-        print(f"[Overlap] No existing session found, will create new one", file=sys.stderr)
+        logger.info("No existing session found, will create new one")
 
     # Get session info
     session_id = input_data.get("session_id", "")
     cwd = input_data.get("cwd", os.getcwd())
+    logger.set_context(hook="SessionStart", session_id=session_id)
 
     # Get device and git info
     hostname = get_hostname()
     device_name = get_device_name()
     is_remote = is_remote_session()
     git_info = get_git_info(cwd)
+
+    logger.info("Collected environment info",
+                hostname=hostname,
+                device_name=device_name,
+                is_remote=is_remote,
+                git_repo=git_info.get("repo_name"),
+                git_branch=git_info.get("branch"))
 
     try:
         # Start session on server
@@ -86,18 +99,20 @@ def main():
         if git_info.get("branch"):
             request_data["branch"] = git_info["branch"]
 
-        print(f"[Overlap] Starting session with data: {json.dumps(request_data)}", file=sys.stderr)
+        logger.info("Starting session on server")
+        print(f"[Overlap] Starting session...", file=sys.stderr)
 
         response = api_request("POST", "/api/v1/sessions/start", request_data)
-        print(f"[Overlap] Server response: {json.dumps(response)}", file=sys.stderr)
 
         # Save session ID for later hooks
         server_session_id = response.get("data", {}).get("session_id")
         if server_session_id:
             save_current_session(server_session_id)
-            print(f"[Overlap] Saved session ID to local file: {server_session_id}", file=sys.stderr)
+            logger.info("Session started successfully", server_session_id=server_session_id)
+            print(f"[Overlap] Session started: {server_session_id}", file=sys.stderr)
         else:
-            print(f"[Overlap] WARNING: No session_id in response, cannot save locally", file=sys.stderr)
+            logger.warn("No session_id in server response", response_keys=list(response.keys()))
+            print(f"[Overlap] WARNING: No session_id in response", file=sys.stderr)
 
         # Output context for Claude (shown in SessionStart)
         working_in = git_info.get("repo_name") or os.path.basename(cwd) or cwd
@@ -110,7 +125,7 @@ def main():
         print(json.dumps(output))
 
     except Exception as e:
-        # Log error with full traceback
+        logger.error("Failed to start session", exc=e)
         import traceback
         print(f"[Overlap] Failed to start session: {e}", file=sys.stderr)
         print(f"[Overlap] Traceback: {traceback.format_exc()}", file=sys.stderr)

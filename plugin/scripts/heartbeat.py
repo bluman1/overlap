@@ -13,13 +13,9 @@ import os
 # Add scripts directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import logger
 from config import is_configured, get_current_session
 from api import api_request
-
-
-# Track files we've already reported in this batch
-# (to avoid duplicate reports for the same edit)
-_reported_files = set()
 
 
 def extract_file_path(tool_input: dict, tool_name: str) -> str | None:
@@ -37,22 +33,25 @@ def extract_file_path(tool_input: dict, tool_name: str) -> str | None:
 
 
 def main():
+    # Set up logging context
+    session_id = get_current_session()
+    logger.set_context(hook="PostToolUse", session_id=session_id)
+
     # Read hook input from stdin
     try:
         input_data = json.load(sys.stdin)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.warn("Failed to parse stdin JSON", error=str(e))
         sys.exit(0)
 
     # Check if configured
     if not is_configured():
-        print("[Overlap] Heartbeat: Not configured, skipping", file=sys.stderr)
+        logger.debug("Not configured, skipping")
         sys.exit(0)
 
     # Get current session
-    session_id = get_current_session()
     if not session_id:
-        # No active session
-        print("[Overlap] Heartbeat: No active session found in ~/.overlap/session.json, skipping", file=sys.stderr)
+        logger.debug("No active session, skipping")
         sys.exit(0)
 
     # Extract file path from tool input
@@ -61,6 +60,7 @@ def main():
 
     file_path = extract_file_path(tool_input, tool_name)
     if not file_path:
+        logger.debug("No file path in tool input", tool_name=tool_name)
         sys.exit(0)
 
     # Make path relative to cwd for privacy
@@ -68,19 +68,27 @@ def main():
     try:
         if os.path.isabs(file_path):
             file_path = os.path.relpath(file_path, cwd)
-    except ValueError:
+    except ValueError as e:
         # Can't make relative (different drive on Windows, etc.)
-        pass
+        logger.debug("Could not make path relative", path=file_path, error=str(e))
+
+    logger.info("Sending heartbeat",
+                tool_name=tool_name,
+                file_path=file_path)
 
     try:
         # Send heartbeat with file info
-        print(f"[Overlap] Heartbeat: Sending for session {session_id}, file: {file_path}", file=sys.stderr)
         response = api_request("POST", f"/api/v1/sessions/{session_id}/heartbeat", {
             "files": [file_path],
         })
-        print(f"[Overlap] Heartbeat: Success - {response.get('data', {})}", file=sys.stderr)
+
+        result = response.get("data", {})
+        logger.info("Heartbeat sent successfully",
+                    file_path=file_path,
+                    scope=result.get("semantic_scope"))
+
     except Exception as e:
-        # Log error with traceback
+        logger.error("Heartbeat failed", exc=e, file_path=file_path)
         import traceback
         print(f"[Overlap] Heartbeat failed: {e}", file=sys.stderr)
         print(f"[Overlap] Traceback: {traceback.format_exc()}", file=sys.stderr)

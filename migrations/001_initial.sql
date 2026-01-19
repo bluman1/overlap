@@ -124,6 +124,22 @@ CREATE TABLE IF NOT EXISTS web_sessions (
 );
 
 -- ============================================================================
+-- PLUGIN LOGS
+-- Logs from user's Claude Code plugin for debugging and support.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS plugin_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    level TEXT NOT NULL CHECK (level IN ('DEBUG', 'INFO', 'WARN', 'ERROR')),
+    hook TEXT,                -- e.g., 'SessionStart', 'PreToolUse', etc.
+    session_id TEXT,          -- Plugin session ID (if available)
+    message TEXT NOT NULL,
+    data TEXT,                -- JSON object with additional context
+    error TEXT,               -- JSON object with error details (type, message, traceback)
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- ============================================================================
 -- INDEXES
 -- ============================================================================
 
@@ -157,3 +173,8 @@ CREATE INDEX IF NOT EXISTS idx_magic_links_expires ON magic_links(expires_at);
 -- Web sessions
 CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(token_hash);
 CREATE INDEX IF NOT EXISTS idx_web_sessions_expires ON web_sessions(expires_at);
+
+-- Plugin logs
+CREATE INDEX IF NOT EXISTS idx_plugin_logs_user ON plugin_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_plugin_logs_level ON plugin_logs(level);
+CREATE INDEX IF NOT EXISTS idx_plugin_logs_created ON plugin_logs(created_at DESC);

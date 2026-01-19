@@ -13,6 +13,7 @@ import os
 # Add scripts directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import logger
 from config import is_configured, get_current_session
 from api import api_request
 
@@ -65,21 +66,25 @@ def format_overlap_warning(overlaps: list) -> str:
 
 
 def main():
+    # Set up logging context
+    session_id = get_current_session()
+    logger.set_context(hook="PreToolUse", session_id=session_id)
+
     # Read hook input from stdin
     try:
         input_data = json.load(sys.stdin)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.warn("Failed to parse stdin JSON", error=str(e))
         sys.exit(0)
 
     # Check if configured
     if not is_configured():
-        print("[Overlap] ConflictCheck: Not configured, skipping", file=sys.stderr)
+        logger.debug("Not configured, skipping")
         sys.exit(0)
 
     # Get current session (we need it to exclude ourselves from results)
-    session_id = get_current_session()
     if not session_id:
-        print("[Overlap] ConflictCheck: No active session, skipping", file=sys.stderr)
+        logger.debug("No active session, skipping")
         sys.exit(0)
 
     # Extract file path from tool input
@@ -88,29 +93,46 @@ def main():
 
     file_path = extract_file_path(tool_input, tool_name)
     if not file_path:
+        logger.debug("No file path in tool input", tool_name=tool_name)
         sys.exit(0)
 
     # Make path relative to cwd for privacy
     cwd = input_data.get("cwd", os.getcwd())
+    original_path = file_path
     try:
         if os.path.isabs(file_path):
             file_path = os.path.relpath(file_path, cwd)
-    except ValueError:
-        pass
+    except ValueError as e:
+        # Can't make relative (different drive on Windows, etc.)
+        logger.debug("Could not make path relative", path=file_path, error=str(e))
+
+    logger.info("Checking for conflicts",
+                tool_name=tool_name,
+                file_path=file_path)
 
     try:
         # Check for overlaps
-        print(f"[Overlap] ConflictCheck: Checking file {file_path}", file=sys.stderr)
         response = api_request("POST", "/api/v1/check", {
             "files": [file_path],
         })
 
         overlaps = response.get("data", {}).get("overlaps", [])
-        print(f"[Overlap] ConflictCheck: Found {len(overlaps)} overlaps", file=sys.stderr)
+        logger.info("Conflict check complete",
+                    file_path=file_path,
+                    overlap_count=len(overlaps))
 
         if overlaps:
+            # Log overlap details
+            logger.info("Overlaps detected",
+                        overlaps=[{
+                            "user": o.get("user_name"),
+                            "scope": o.get("semantic_scope"),
+                            "files": o.get("files", [])[:3]
+                        } for o in overlaps[:3]])
+
             # Format and output warning
             warning = format_overlap_warning(overlaps)
+            print(f"[Overlap] ConflictCheck: Found {len(overlaps)} overlaps", file=sys.stderr)
 
             # Output as additional context for Claude
             output = {
@@ -124,7 +146,7 @@ def main():
             print(json.dumps(output))
 
     except Exception as e:
-        # Log error with traceback
+        logger.error("Conflict check failed", exc=e, file_path=file_path)
         import traceback
         print(f"[Overlap] Check failed: {e}", file=sys.stderr)
         print(f"[Overlap] Traceback: {traceback.format_exc()}", file=sys.stderr)

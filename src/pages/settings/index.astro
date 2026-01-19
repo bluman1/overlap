@@ -78,7 +78,61 @@ import { Header } from '@components/Header';
             <span class="text-muted" style="font-size: 1.5rem;">→</span>
           </div>
         </a>
+
+        <!-- Plugin Logs (Admin only) -->
+        <a id="logs-link" href="/settings/logs" class="card" style="text-decoration: none; color: inherit; display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: var(--space-sm);">
+              <div>
+                <h2 style="font-size: 1.125rem; margin-bottom: var(--space-xs);">Plugin Logs</h2>
+                <p class="text-secondary" style="font-size: 0.875rem;">
+                  View plugin logs and errors for debugging
+                </p>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-sm);">
+              <span class="admin-badge">Admin</span>
+              <span class="text-muted" style="font-size: 1.5rem;">→</span>
+            </div>
+          </div>
+        </a>
       </div>
     </div>
   </main>
 </Layout>
+
+<style>
+  .admin-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(255, 152, 0, 0.15);
+    color: var(--accent-orange);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+  }
+</style>
+
+<script>
+  // Check if user is admin and show logs link
+  async function checkAdminAndShowLogs() {
+    try {
+      const response = await fetch('/api/v1/admin/users');
+      if (response.ok) {
+        const result = await response.json() as { data?: { is_admin: boolean } };
+        if (result.data?.is_admin) {
+          const logsLink = document.getElementById('logs-link');
+          if (logsLink) {
+            logsLink.style.display = 'block';
+          }
+        }
+      }
+    } catch {
+      // Not admin or error - keep logs link hidden
+    }
+  }
+
+  checkAdminAndShowLogs();
+</script>

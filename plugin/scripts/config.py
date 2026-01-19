@@ -13,6 +13,12 @@ import os
 from pathlib import Path
 from typing import Optional
 
+# Import logger - but handle case where it fails (avoid circular issues)
+try:
+    import logger as _logger
+except ImportError:
+    _logger = None  # type: ignore
+
 # Store in ~/.claude/overlap/ as recommended by Claude Code docs
 CONFIG_DIR = Path.home() / ".claude" / "overlap"
 CONFIG_FILE = CONFIG_DIR / "config.json"
@@ -33,8 +39,12 @@ def get_config() -> dict:
             with open(CONFIG_FILE) as f:
                 file_config = json.load(f)
                 config.update(file_config)
-        except (json.JSONDecodeError, IOError):
-            pass
+        except json.JSONDecodeError as e:
+            if _logger:
+                _logger.warn("Config file has invalid JSON", path=str(CONFIG_FILE), error=str(e))
+        except IOError as e:
+            if _logger:
+                _logger.warn("Failed to read config file", path=str(CONFIG_FILE), error=str(e))
 
     # Override with environment variables
     if os.environ.get("OVERLAP_SERVER_URL"):
@@ -54,8 +64,12 @@ def save_config(config: dict) -> None:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(CONFIG_FILE, "w") as f:
             json.dump(config, f, indent=2)
+        if _logger:
+            _logger.info("Config saved", path=str(CONFIG_FILE))
         print(f"[Overlap] Config: Saved config to {CONFIG_FILE}", file=sys.stderr)
     except Exception as e:
+        if _logger:
+            _logger.error("Failed to save config", exc=e, path=str(CONFIG_FILE))
         print(f"[Overlap] Config: FAILED to save config: {e}", file=sys.stderr)
         raise
 
@@ -67,8 +81,12 @@ def get_current_session() -> Optional[str]:
             with open(SESSION_FILE) as f:
                 data = json.load(f)
                 return data.get("session_id")
-        except (json.JSONDecodeError, IOError):
-            pass
+        except json.JSONDecodeError as e:
+            if _logger:
+                _logger.warn("Session file has invalid JSON", path=str(SESSION_FILE), error=str(e))
+        except IOError as e:
+            if _logger:
+                _logger.warn("Failed to read session file", path=str(SESSION_FILE), error=str(e))
     return None
 
 
@@ -79,8 +97,12 @@ def save_current_session(session_id: str) -> None:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(SESSION_FILE, "w") as f:
             json.dump({"session_id": session_id}, f)
+        if _logger:
+            _logger.info("Session saved", session_id=session_id, path=str(SESSION_FILE))
         print(f"[Overlap] Config: Successfully wrote session file to {SESSION_FILE}", file=sys.stderr)
     except Exception as e:
+        if _logger:
+            _logger.error("Failed to save session", exc=e, session_id=session_id)
         print(f"[Overlap] Config: FAILED to write session file: {e}", file=sys.stderr)
         raise
 
@@ -88,7 +110,13 @@ def save_current_session(session_id: str) -> None:
 def clear_current_session() -> None:
     """Clear the current session."""
     if SESSION_FILE.exists():
-        SESSION_FILE.unlink()
+        try:
+            SESSION_FILE.unlink()
+            if _logger:
+                _logger.info("Session cleared", path=str(SESSION_FILE))
+        except OSError as e:
+            if _logger:
+                _logger.warn("Failed to clear session file", path=str(SESSION_FILE), error=str(e))
 
 
 def is_configured() -> bool:
