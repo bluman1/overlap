@@ -5,7 +5,7 @@ Overlap PostToolUse heartbeat hook.
 Called after file edits to report activity to the Overlap server.
 Collects the files being edited and sends them for classification.
 
-Uses transcript_path to look up the Overlap session ID.
+If this is the first tool use, lazily registers the session with the server.
 """
 
 import json
@@ -16,8 +16,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import logger
-from config import is_configured, get_session_for_transcript
-from api import api_request
+from config import is_configured
+from api import api_request, ensure_session_registered
 
 
 def extract_file_path(tool_input: dict, tool_name: str) -> str | None:
@@ -59,10 +59,15 @@ def main():
     # Expand ~ in path
     transcript_path = os.path.expanduser(transcript_path)
 
-    # Look up Overlap session for this Claude session
-    overlap_session_id = get_session_for_transcript(transcript_path)
+    # Get session info for lazy registration
+    session_id = input_data.get("session_id", "")
+    cwd = input_data.get("cwd", os.getcwd())
+
+    # Ensure session is registered (lazy registration on first tool use)
+    overlap_session_id = ensure_session_registered(transcript_path, session_id, cwd)
     logger.set_context(hook="PostToolUse", session_id=overlap_session_id)
 
+    # Heartbeat requires a registered session
     if not overlap_session_id:
         logger.debug("No Overlap session for this transcript, skipping")
         sys.exit(0)

@@ -150,6 +150,70 @@ def clear_session_for_transcript(transcript_path: str) -> None:
             _logger.warn("Failed to clear session", transcript_path=transcript_path, error=str(e))
 
 
+# Pending sessions - saved at SessionStart, registered lazily on first tool use
+PENDING_SESSIONS_FILE = CONFIG_DIR / "pending_sessions.json"
+
+
+def _load_pending_sessions() -> dict:
+    """Load all pending sessions from file."""
+    if PENDING_SESSIONS_FILE.exists():
+        try:
+            with open(PENDING_SESSIONS_FILE) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return {}
+
+
+def _save_pending_sessions(pending: dict) -> None:
+    """Save all pending sessions to file."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(PENDING_SESSIONS_FILE, "w") as f:
+        json.dump(pending, f, indent=2)
+
+
+def save_pending_session(transcript_path: str, session_info: dict) -> None:
+    """Save pending session info for lazy registration."""
+    import sys
+    try:
+        pending = _load_pending_sessions()
+        key = _get_transcript_key(transcript_path)
+        pending[key] = {
+            "transcript_path": transcript_path,
+            **session_info,
+        }
+        _save_pending_sessions(pending)
+        if _logger:
+            _logger.info("Pending session saved", transcript_path=transcript_path)
+        print(f"[Overlap] Config: Saved pending session for lazy registration", file=sys.stderr)
+    except Exception as e:
+        if _logger:
+            _logger.error("Failed to save pending session", exc=e, transcript_path=transcript_path)
+        print(f"[Overlap] Config: FAILED to save pending session: {e}", file=sys.stderr)
+
+
+def get_pending_session(transcript_path: str) -> Optional[dict]:
+    """Get pending session info for a Claude transcript."""
+    pending = _load_pending_sessions()
+    key = _get_transcript_key(transcript_path)
+    return pending.get(key)
+
+
+def clear_pending_session(transcript_path: str) -> None:
+    """Clear pending session after registration."""
+    try:
+        pending = _load_pending_sessions()
+        key = _get_transcript_key(transcript_path)
+        if key in pending:
+            del pending[key]
+            _save_pending_sessions(pending)
+            if _logger:
+                _logger.info("Pending session cleared", transcript_path=transcript_path)
+    except Exception as e:
+        if _logger:
+            _logger.warn("Failed to clear pending session", transcript_path=transcript_path, error=str(e))
+
+
 def get_lock_file_for_transcript(transcript_path: str) -> Path:
     """Get the lock file path for a Claude transcript."""
     key = _get_transcript_key(transcript_path)

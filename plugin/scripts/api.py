@@ -163,5 +163,144 @@ def is_remote_session() -> bool:
     return False
 
 
+def register_pending_session(transcript_path: str) -> str | None:
+    """
+    Register a pending session with the server.
+
+    This is called lazily on first tool use (PreToolUse or PostToolUse)
+    to filter out ghost sessions that never do actual work.
+
+    Args:
+        transcript_path: The Claude session transcript path
+
+    Returns:
+        The Overlap session ID if successful, None otherwise
+    """
+    from config import (
+        get_pending_session,
+        clear_pending_session,
+        save_session_for_transcript,
+        get_session_for_transcript,
+    )
+
+    # Check if already registered
+    existing = get_session_for_transcript(transcript_path)
+    if existing:
+        logger.info("Session already registered", overlap_session_id=existing)
+        return existing
+
+    # Get pending session info
+    pending = get_pending_session(transcript_path)
+    if not pending:
+        logger.debug("No pending session found", transcript_path=transcript_path)
+        return None
+
+    logger.info("Registering pending session", transcript_path=transcript_path)
+    print(f"[Overlap] Registering session...", file=sys.stderr)
+
+    try:
+        # Build request data from pending info
+        request_data = {
+            "session_id": pending.get("session_id", ""),
+            "device_name": pending.get("device_name", ""),
+            "hostname": pending.get("hostname", ""),
+            "is_remote": pending.get("is_remote", False),
+            "worktree": pending.get("worktree", ""),
+        }
+        # Add optional git fields only if they have values
+        if pending.get("repo_name"):
+            request_data["repo_name"] = pending["repo_name"]
+        if pending.get("remote_url"):
+            request_data["remote_url"] = pending["remote_url"]
+        if pending.get("branch"):
+            request_data["branch"] = pending["branch"]
+
+        response = api_request("POST", "/api/v1/sessions/start", request_data)
+
+        overlap_session_id = response.get("data", {}).get("session_id")
+        if overlap_session_id:
+            # Save the registered session and clear pending
+            save_session_for_transcript(transcript_path, overlap_session_id, pending.get("worktree", ""))
+            clear_pending_session(transcript_path)
+            logger.info("Session registered successfully",
+                        overlap_session_id=overlap_session_id,
+                        transcript_path=transcript_path)
+            print(f"[Overlap] Session started: {overlap_session_id}", file=sys.stderr)
+            return overlap_session_id
+        else:
+            logger.warn("No session_id in server response")
+            return None
+
+    except Exception as e:
+        logger.error("Failed to register pending session", exc=e)
+        print(f"[Overlap] Failed to register session: {e}", file=sys.stderr)
+        return None
+
+
+def ensure_session_registered(transcript_path: str, session_id: str, cwd: str) -> str | None:
+    """
+    Ensure a session is registered, using lazy registration.
+
+    Checks in order:
+    1. Already registered session
+    2. Pending session (register it)
+    3. Fresh registration (if transcript file exists)
+
+    Args:
+        transcript_path: The Claude session transcript path
+        session_id: Claude's session ID from hook input
+        cwd: Current working directory from hook input
+
+    Returns:
+        The Overlap session ID if successful, None otherwise
+    """
+    from config import (
+        get_session_for_transcript,
+        get_pending_session,
+        save_pending_session,
+    )
+
+    # 1. Check if already registered
+    existing = get_session_for_transcript(transcript_path)
+    if existing:
+        return existing
+
+    # 2. Check for pending session
+    if get_pending_session(transcript_path):
+        return register_pending_session(transcript_path)
+
+    # 3. Check if transcript file exists now (lazy check)
+    if not os.path.exists(transcript_path):
+        logger.debug("Transcript file still does not exist", transcript_path=transcript_path)
+        return None
+
+    # Transcript exists but no pending - gather fresh info and register
+    logger.info("Transcript exists, gathering session info for registration",
+                transcript_path=transcript_path)
+
+    hostname = get_hostname()
+    device_name = get_device_name()
+    is_remote = is_remote_session()
+    git_info = get_git_info(cwd)
+
+    session_info = {
+        "session_id": session_id,
+        "device_name": device_name,
+        "hostname": hostname,
+        "is_remote": is_remote,
+        "worktree": cwd,
+    }
+    if git_info.get("repo_name"):
+        session_info["repo_name"] = git_info["repo_name"]
+    if git_info.get("remote_url"):
+        session_info["remote_url"] = git_info["remote_url"]
+    if git_info.get("branch"):
+        session_info["branch"] = git_info["branch"]
+
+    # Save pending and register
+    save_pending_session(transcript_path, session_info)
+    return register_pending_session(transcript_path)
+
+
 # Import os for is_remote_session
 import os

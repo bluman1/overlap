@@ -5,7 +5,7 @@ Overlap PreToolUse conflict check hook.
 Called before file edits to check if anyone else is working on the same files.
 Displays a warning if overlap is detected, but does NOT block the edit.
 
-Uses transcript_path to look up the Overlap session ID.
+If this is the first tool use, lazily registers the session with the server.
 """
 
 import json
@@ -16,8 +16,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import logger
-from config import is_configured, get_session_for_transcript
-from api import api_request
+from config import is_configured
+from api import api_request, ensure_session_registered
 
 
 def extract_file_path(tool_input: dict, tool_name: str) -> str | None:
@@ -92,13 +92,13 @@ def main():
     # Expand ~ in path
     transcript_path = os.path.expanduser(transcript_path)
 
-    # Look up Overlap session for this Claude session
-    overlap_session_id = get_session_for_transcript(transcript_path)
-    logger.set_context(hook="PreToolUse", session_id=overlap_session_id)
+    # Get session info for lazy registration
+    session_id = input_data.get("session_id", "")
+    cwd = input_data.get("cwd", os.getcwd())
 
-    if not overlap_session_id:
-        logger.debug("No Overlap session for this transcript, skipping")
-        sys.exit(0)
+    # Ensure session is registered (lazy registration on first tool use)
+    overlap_session_id = ensure_session_registered(transcript_path, session_id, cwd)
+    logger.set_context(hook="PreToolUse", session_id=overlap_session_id)
 
     # Extract file path from tool input
     tool_name = input_data.get("tool_name", "")
