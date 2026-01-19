@@ -34,8 +34,7 @@ def extract_file_path(tool_input: dict, tool_name: str) -> str | None:
 
 def main():
     # Set up logging context
-    session_id = get_current_session()
-    logger.set_context(hook="PostToolUse", session_id=session_id)
+    logger.set_context(hook="PostToolUse")
 
     # Read hook input from stdin
     try:
@@ -49,7 +48,10 @@ def main():
         logger.debug("Not configured, skipping")
         sys.exit(0)
 
-    # Get current session
+    # Get session ID from hook input (preferred) or fall back to stored session
+    session_id = input_data.get("session_id") or get_current_session()
+    logger.set_context(hook="PostToolUse", session_id=session_id)
+
     if not session_id:
         logger.debug("No active session, skipping")
         sys.exit(0)
