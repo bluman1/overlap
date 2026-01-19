@@ -23,6 +23,7 @@ export function Timeline() {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showStale, setShowStale] = useState(false);
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -120,32 +121,109 @@ export function Timeline() {
       </div>
 
       {/* Sessions list */}
-      {isLoading ? (
-        <div
-          className="card"
-          style={{
-            textAlign: 'center',
-            padding: 'var(--space-xl)',
-          }}
-        >
-          <img src="/loading.gif" alt="Loading" width={48} height={48} style={{ opacity: 0.8 }} />
-        </div>
-      ) : sessions.length === 0 ? (
-        <div
-          className="card"
-          style={{
-            textAlign: 'center',
-            padding: 'var(--space-xl)',
-          }}
-        >
-          <p className="text-secondary">No active sessions</p>
-          <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: 'var(--space-sm)' }}>
-            Activity will appear here when team members start coding
-          </p>
-        </div>
-      ) : (
-        sessions.map((session) => <ActivityCard key={session.id} session={session} />)
-      )}
+      {(() => {
+        const activeSessions = sessions.filter((s) => s.status !== 'stale');
+        const displayedSessions = showStale ? sessions : activeSessions;
+        const hasStale = sessions.some((s) => s.status === 'stale');
+
+        if (isLoading) {
+          return (
+            <div
+              className="card"
+              style={{
+                textAlign: 'center',
+                padding: 'var(--space-xl)',
+              }}
+            >
+              <img src="/loading.gif" alt="Loading" width={48} height={48} style={{ opacity: 0.8 }} />
+            </div>
+          );
+        }
+
+        if (displayedSessions.length === 0) {
+          return (
+            <>
+              <div
+                className="card"
+                style={{
+                  textAlign: 'center',
+                  padding: 'var(--space-xl)',
+                }}
+              >
+                <p className="text-secondary">No active sessions</p>
+                <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: 'var(--space-sm)' }}>
+                  Activity will appear here when team members start coding
+                </p>
+              </div>
+              {hasStale && !showStale && (
+                <button
+                  onClick={() => setShowStale(true)}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-md)',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px dashed var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    marginTop: 'var(--space-sm)',
+                  }}
+                >
+                  Show stale sessions
+                </button>
+              )}
+            </>
+          );
+        }
+
+        return (
+          <>
+            {displayedSessions.map((session) => (
+              <ActivityCard key={session.id} session={session} />
+            ))}
+
+            {/* Stale sessions toggle */}
+            {hasStale && !showStale && (
+              <button
+                onClick={() => setShowStale(true)}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-md)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px dashed var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  marginTop: 'var(--space-sm)',
+                }}
+              >
+                Show stale sessions
+              </button>
+            )}
+
+            {hasStale && showStale && (
+              <button
+                onClick={() => setShowStale(false)}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-md)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px dashed var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  marginTop: 'var(--space-sm)',
+                }}
+              >
+                Hide stale sessions
+              </button>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
