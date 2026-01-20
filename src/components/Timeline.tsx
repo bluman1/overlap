@@ -159,8 +159,6 @@ export function Timeline() {
     fetchSessions(offset, true);
   };
 
-  const hasStale = sessions.some((s) => s.status === 'stale');
-
   return (
     <div>
       {/* Header bar with connection status, view toggle, and stale toggle */}
@@ -191,21 +189,19 @@ export function Timeline() {
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
           <ViewToggle value={viewMode} onChange={handleViewModeChange} />
-          {(hasStale || showStale) && (
-            <button
-              onClick={() => setShowStale(!showStale)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: showStale ? 'var(--text-secondary)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                padding: 0,
-              }}
-            >
-              {showStale ? 'Hide stale' : 'Show stale'}
-            </button>
-          )}
+          <button
+            onClick={() => setShowStale(!showStale)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: showStale ? 'var(--text-secondary)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              padding: 0,
+            }}
+          >
+            {showStale ? 'Hide stale' : 'Show stale'}
+          </button>
         </div>
       </div>
 
