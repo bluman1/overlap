@@ -55,6 +55,7 @@ def api_request(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {config.get('user_token', '')}",
         "X-Team-Token": config.get("team_token", ""),
+        "User-Agent": "Overlap-Plugin/1.0 (Claude Code; +https://github.com/overlapcode/overlap)",
     }
 
     body = json.dumps(data).encode() if data else None
