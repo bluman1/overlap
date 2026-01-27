@@ -98,6 +98,20 @@ function HistoryCard({ session }: { session: HistorySession }) {
         </div>
       )}
 
+      {/* Session detail link */}
+      <a
+        href={`/session/${session.id}`}
+        style={{
+          display: 'inline-block',
+          marginTop: 'var(--space-sm)',
+          fontSize: '0.75rem',
+          color: 'var(--accent-blue)',
+          textDecoration: 'none',
+        }}
+      >
+        View session →
+      </a>
+
       {/* Expandable activities section */}
       {expanded && (
         <div style={{
