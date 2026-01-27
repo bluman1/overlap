@@ -99,7 +99,9 @@ export function UserAccordion({ user, showStale }: UserAccordionProps) {
     fetchSessions(offset, true);
   };
 
-  // Refetch when showStale changes (fetchSessions identity changes) and accordion is expanded
+  // Refetch when showStale changes (fetchSessions identity changes via [showStale] dep).
+  // Intentionally omits isExpanded — we only want to re-fetch on filter change, not on expand toggle.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isExpanded) {
       setOffset(0);

@@ -20,6 +20,7 @@ function formatSession(session: SessionWithDetails) {
     },
     repo: session.repo,
     branch: session.branch,
+    worktree: session.worktree,
     status: session.status,
     started_at: session.started_at,
     last_activity_at: session.last_activity_at,
@@ -53,8 +54,10 @@ export async function GET(context: APIContext) {
   const userIdParam = url.searchParams.get('userId');
   const includeStaleParam = url.searchParams.get('includeStale');
 
-  const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 20;
-  const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+  const rawLimit = limitParam ? parseInt(limitParam, 10) : 20;
+  const limit = Number.isNaN(rawLimit) ? 20 : Math.min(Math.max(rawLimit, 1), 100);
+  const rawOffset = offsetParam ? parseInt(offsetParam, 10) : 0;
+  const offset = Number.isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
   const includeStale = includeStaleParam !== 'false';
 
   try {

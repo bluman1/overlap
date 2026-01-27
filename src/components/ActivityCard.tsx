@@ -1,5 +1,7 @@
-import { memo } from 'react';
-import { useRelativeTime } from '@lib/utils/time';
+import { memo, useState } from 'react';
+import { useRelativeTime, formatRelativeTime } from '@lib/utils/time';
+import { parseGitHubUrl, getRelativeFilePath, getStatusLabel, getFileUrl, getBranchUrl } from '@lib/utils/github';
+import { fetchWithTimeout } from '@lib/utils/fetch';
 
 const WAITING_MESSAGES = [
   "Warming up the keyboard...",
@@ -25,15 +27,22 @@ const WAITING_MESSAGES = [
 ];
 
 function getWaitingMessage(sessionId: string): string {
-  // Simple hash to get consistent index from session ID
   let hash = 0;
   for (let i = 0; i < sessionId.length; i++) {
     hash = ((hash << 5) - hash) + sessionId.charCodeAt(i);
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
   const index = Math.abs(hash) % WAITING_MESSAGES.length;
   return WAITING_MESSAGES[index];
 }
+
+type CompactActivity = {
+  id: string;
+  semantic_scope: string | null;
+  summary: string | null;
+  files: string[];
+  created_at: string;
+};
 
 type ActivityCardProps = {
   session: {
@@ -54,80 +63,68 @@ type ActivityCardProps = {
   };
 };
 
-// Parse git remote URL to GitHub web URL
-function parseGitHubUrl(remoteUrl: string | null): string | null {
-  if (!remoteUrl) return null;
-
-  // Handle SSH format: git@github.com:owner/repo.git
-  const sshMatch = remoteUrl.match(/^git@github\.com:(.+?)(?:\.git)?$/);
-  if (sshMatch) {
-    return `https://github.com/${sshMatch[1]}`;
-  }
-
-  // Handle HTTPS format: https://github.com/owner/repo.git
-  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/(.+?)(?:\.git)?$/);
-  if (httpsMatch) {
-    return `https://github.com/${httpsMatch[1]}`;
-  }
-
-  // Handle plain HTTPS without .git
-  if (remoteUrl.startsWith('https://github.com/')) {
-    return remoteUrl.replace(/\.git$/, '');
-  }
-
-  return null;
-}
-
-// Get relative file path by stripping worktree prefix
-function getRelativeFilePath(absolutePath: string, worktree: string | null): string {
-  if (!worktree) return absolutePath;
-
-  // Normalize paths (remove trailing slashes)
-  const normalizedWorktree = worktree.replace(/\/+$/, '');
-
-  if (absolutePath.startsWith(normalizedWorktree + '/')) {
-    return absolutePath.slice(normalizedWorktree.length + 1);
-  }
-
-  return absolutePath;
-}
-
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'active': return 'ACTIVE';
-    case 'stale': return 'STALE';
-    case 'ended': return 'ENDED';
-    default: return status.toUpperCase();
-  }
-}
-
 export const ActivityCard = memo(function ActivityCard({ session }: ActivityCardProps) {
   const { user, device, repo, branch, worktree, status, last_activity_at, activity } = session;
   const relativeTime = useRelativeTime(last_activity_at);
 
+  const [expanded, setExpanded] = useState(false);
+  const [recentActivities, setRecentActivities] = useState<CompactActivity[] | null>(null);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+
   // GitHub URL helpers
   const githubBaseUrl = parseGitHubUrl(repo?.remote_url ?? null);
   const repoUrl = githubBaseUrl;
-  const branchUrl = githubBaseUrl && branch ? `${githubBaseUrl}/tree/${branch}` : null;
+  const branchUrl = getBranchUrl(githubBaseUrl, branch);
 
-  const getFileUrl = (filePath: string): string | null => {
-    if (!githubBaseUrl || !branch) return null;
-    const relativePath = getRelativeFilePath(filePath, worktree);
-    // Encode each path segment to handle special chars like (), [], etc.
-    const encodedPath = relativePath.split('/').map(encodeURIComponent).join('/');
-    return `${githubBaseUrl}/blob/${branch}/${encodedPath}`;
+  const handleToggleExpand = async () => {
+    const willExpand = !expanded;
+    setExpanded(willExpand);
+
+    if (willExpand && recentActivities === null) {
+      setLoadingActivities(true);
+      try {
+        const res = await fetchWithTimeout(`/api/v1/sessions/${session.id}/activities?limit=5`);
+        if (res.ok) {
+          const json = (await res.json()) as { data: { activities: CompactActivity[] } };
+          setRecentActivities(json.data.activities);
+        }
+      } catch {
+        setRecentActivities([]);
+      } finally {
+        setLoadingActivities(false);
+      }
+    }
   };
 
   return (
     <div className="card" style={{ marginBottom: 'var(--space-md)' }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 'var(--space-md)'
-      }}>
+      {/* Header — clickable to expand */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={handleToggleExpand}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleExpand(); } }}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 'var(--space-md)',
+          cursor: 'pointer',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+              display: 'inline-block',
+              color: 'var(--text-muted)',
+              fontSize: '0.625rem',
+            }}
+          >
+            ▶
+          </span>
           <span style={{ fontWeight: 600 }}>{user.name}</span>
           <span className="text-muted">·</span>
           <span className="text-secondary">{device.name}</span>
@@ -168,21 +165,23 @@ export const ActivityCard = memo(function ActivityCard({ session }: ActivityCard
           {activity.files && activity.files.length > 0 && (
             <div className="files-list">
               {activity.files.slice(0, 5).map((file, i) => {
-                const fileUrl = getFileUrl(file);
+                const url = getFileUrl(file, githubBaseUrl, branch, worktree);
                 const fileName = file.split('/').pop();
-                return fileUrl ? (
+                const key = `${i}:${file}`;
+                return url ? (
                   <a
-                    key={i}
-                    href={fileUrl}
+                    key={key}
+                    href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="file-tag file-tag-link"
                     title={getRelativeFilePath(file, worktree)}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     {fileName}
                   </a>
                 ) : (
-                  <span key={i} className="file-tag" title={file}>
+                  <span key={key} className="file-tag" title={file}>
                     {fileName}
                   </span>
                 );
@@ -211,7 +210,7 @@ export const ActivityCard = memo(function ActivityCard({ session }: ActivityCard
         >
           {branch && (
             branchUrl ? (
-              <a href={branchUrl} target="_blank" rel="noopener noreferrer" className="footer-link">
+              <a href={branchUrl} target="_blank" rel="noopener noreferrer" className="footer-link" onClick={(e) => e.stopPropagation()}>
                 {branch}
               </a>
             ) : (
@@ -221,13 +220,89 @@ export const ActivityCard = memo(function ActivityCard({ session }: ActivityCard
           {branch && repo && <span> · </span>}
           {repo && (
             repoUrl ? (
-              <a href={repoUrl} target="_blank" rel="noopener noreferrer" className="footer-link">
+              <a href={repoUrl} target="_blank" rel="noopener noreferrer" className="footer-link" onClick={(e) => e.stopPropagation()}>
                 {repo.name}
               </a>
             ) : (
               <span>{repo.name}</span>
             )
           )}
+        </div>
+      )}
+
+      {/* Expandable inline activity preview */}
+      {expanded && (
+        <div style={{
+          marginTop: 'var(--space-md)',
+          borderTop: '1px solid var(--border-subtle)',
+          paddingTop: 'var(--space-md)',
+        }}>
+          <div style={{
+            fontSize: '0.75rem',
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase' as const,
+            letterSpacing: '0.05em',
+            marginBottom: 'var(--space-sm)',
+          }}>
+            Recent Activity
+          </div>
+
+          {loadingActivities ? (
+            <div className="text-muted" style={{ fontSize: '0.875rem', padding: 'var(--space-xs) 0' }}>
+              Loading...
+            </div>
+          ) : recentActivities && recentActivities.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+              {recentActivities.map((act) => (
+                <div
+                  key={act.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 'var(--space-sm)',
+                    padding: 'var(--space-xs) 0',
+                    fontSize: '0.875rem',
+                    borderBottom: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <span className="text-muted" style={{ fontSize: '0.75rem', flexShrink: 0 }}>
+                    {formatRelativeTime(act.created_at)}
+                  </span>
+                  {act.semantic_scope && (
+                    <span className="scope-badge" style={{ fontSize: '0.6875rem' }}>{act.semantic_scope}</span>
+                  )}
+                  {act.summary && (
+                    <span className="text-secondary" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {act.summary}
+                    </span>
+                  )}
+                  {act.files.length > 0 && (
+                    <span className="text-muted" style={{ fontSize: '0.75rem', flexShrink: 0 }}>
+                      {act.files.length} file{act.files.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : recentActivities && recentActivities.length === 0 ? (
+            <div className="text-muted" style={{ fontSize: '0.875rem' }}>
+              No activity recorded yet
+            </div>
+          ) : null}
+
+          <a
+            href={`/session/${session.id}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: 'inline-block',
+              marginTop: 'var(--space-sm)',
+              fontSize: '0.875rem',
+              color: 'var(--accent-blue)',
+              textDecoration: 'none',
+            }}
+          >
+            View full session →
+          </a>
         </div>
       )}
     </div>

@@ -6,10 +6,20 @@ import type {
   Repo,
   Session,
   Activity,
+  ParsedActivity,
   SessionWithDetails,
   PluginLog,
   PluginLogWithUser,
 } from './types';
+
+function safeParseFiles(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 // ============================================================================
 // TEAM QUERIES
@@ -386,7 +396,7 @@ export async function getRecentActivity(
       ? {
           id: row.activity_id as string,
           session_id: row.id as string,
-          files: JSON.parse(row.files as string) as string[],
+          files: safeParseFiles(row.files as string),
           semantic_scope: row.semantic_scope as string | null,
           summary: row.summary as string | null,
           created_at: row.activity_created_at as string,
@@ -531,7 +541,7 @@ export async function getUserSessions(
       ? {
           id: row.activity_id as string,
           session_id: row.id as string,
-          files: JSON.parse(row.files as string) as string[],
+          files: safeParseFiles(row.files as string),
           semantic_scope: row.semantic_scope as string | null,
           summary: row.summary as string | null,
           created_at: row.activity_created_at as string,
@@ -631,7 +641,7 @@ export async function checkForOverlaps(
       ? {
           id: row.activity_id as string,
           session_id: row.id as string,
-          files: JSON.parse(row.files as string) as string[],
+          files: safeParseFiles(row.files as string),
           semantic_scope: row.semantic_scope as string | null,
           summary: row.summary as string | null,
           created_at: row.activity_created_at as string,
@@ -820,4 +830,132 @@ export async function deleteOldPluginLogs(db: D1Database, daysToKeep: number = 3
     .run();
 
   return result.meta.changes ?? 0;
+}
+
+// ============================================================================
+// SESSION DETAIL QUERIES
+// ============================================================================
+
+export type PaginatedActivities = {
+  activities: ParsedActivity[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
+/**
+ * Get paginated activities for a single session, ordered by newest first.
+ */
+export async function getSessionActivities(
+  db: D1Database,
+  sessionId: string,
+  options: { limit?: number; offset?: number } = {}
+): Promise<PaginatedActivities> {
+  const { limit = 50, offset = 0 } = options;
+
+  const countResult = await db
+    .prepare('SELECT COUNT(*) as count FROM activity WHERE session_id = ?')
+    .bind(sessionId)
+    .first<{ count: number }>();
+
+  const total = countResult?.count ?? 0;
+
+  const result = await db
+    .prepare(
+      `SELECT * FROM activity
+       WHERE session_id = ?
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`
+    )
+    .bind(sessionId, limit, offset)
+    .all<Activity>();
+
+  const activities = result.results.map((a) => ({
+    ...a,
+    files: safeParseFiles(a.files),
+  }));
+
+  return {
+    activities,
+    total,
+    limit,
+    offset,
+    hasMore: offset + activities.length < total,
+  };
+}
+
+/**
+ * Get a single session with full details (user, device, repo, latest activity).
+ * Verifies the session belongs to the given team.
+ */
+export async function getSessionWithDetails(
+  db: D1Database,
+  sessionId: string,
+  teamId: string
+): Promise<SessionWithDetails | null> {
+  const row = await db
+    .prepare(
+      `SELECT
+        s.*,
+        u.id as user_id, u.name as user_name,
+        d.id as device_id, d.name as device_name, d.is_remote as device_is_remote,
+        r.id as repo_id, r.name as repo_name, r.remote_url as repo_remote_url,
+        a.id as activity_id, a.files, a.semantic_scope, a.summary, a.created_at as activity_created_at
+      FROM sessions s
+      JOIN users u ON s.user_id = u.id
+      JOIN devices d ON s.device_id = d.id
+      LEFT JOIN repos r ON s.repo_id = r.id
+      LEFT JOIN (
+        SELECT session_id, id, files, semantic_scope, summary, created_at,
+               ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at DESC) as rn
+        FROM activity
+      ) a ON s.id = a.session_id AND a.rn = 1
+      WHERE s.id = ?
+      AND u.team_id = ?`
+    )
+    .bind(sessionId, teamId)
+    .first();
+
+  if (!row) return null;
+
+  const r = row as Record<string, unknown>;
+  return {
+    id: r.id as string,
+    user_id: r.user_id as string,
+    device_id: r.device_id as string,
+    repo_id: r.repo_id as string | null,
+    branch: r.branch as string | null,
+    worktree: r.worktree as string | null,
+    status: r.status as 'active' | 'stale' | 'ended',
+    started_at: r.started_at as string,
+    last_activity_at: r.last_activity_at as string,
+    ended_at: r.ended_at as string | null,
+    user: {
+      id: r.user_id as string,
+      name: r.user_name as string,
+    },
+    device: {
+      id: r.device_id as string,
+      name: r.device_name as string,
+      is_remote: r.device_is_remote as number,
+    },
+    repo: r.repo_id
+      ? {
+          id: r.repo_id as string,
+          name: r.repo_name as string,
+          remote_url: r.repo_remote_url as string | null,
+        }
+      : null,
+    latest_activity: r.activity_id
+      ? {
+          id: r.activity_id as string,
+          session_id: r.id as string,
+          files: safeParseFiles(r.files as string),
+          semantic_scope: r.semantic_scope as string | null,
+          summary: r.summary as string | null,
+          created_at: r.activity_created_at as string,
+        }
+      : null,
+  };
 }
