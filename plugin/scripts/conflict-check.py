@@ -132,7 +132,7 @@ def main():
 
             # Format and output warning
             warning = format_overlap_warning(overlaps)
-            print(f"[Overlap] ConflictCheck: Found {len(overlaps)} overlaps", file=sys.stderr)
+            logger.stderr_log(f"ConflictCheck: Found {len(overlaps)} overlaps")
 
             # Output as additional context for Claude
             output = {
@@ -147,7 +147,7 @@ def main():
 
     except Exception as e:
         logger.error("Conflict check failed", exc=e, file_paths=relative_paths)
-        print(f"[Overlap] Check failed: {e}", file=sys.stderr)
+        logger.stderr_log(f"Check failed: {e}")
 
     sys.exit(0)
 

@@ -209,6 +209,12 @@ def flush() -> None:
 atexit.register(flush)
 
 
+def stderr_log(message: str) -> None:
+    """Print a timestamped message to stderr for user-facing output."""
+    ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
+    print(f"[{ts}] [Overlap] {message}", file=sys.stderr)
+
+
 def debug(message: str, **data) -> None:
     """Log debug message (only when OVERLAP_DEBUG is set)."""
     if os.environ.get("OVERLAP_DEBUG"):

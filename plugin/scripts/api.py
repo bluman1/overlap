@@ -199,7 +199,7 @@ def register_pending_session(transcript_path: str) -> str | None:
 
     session_info = entry.get("session_info", {})
     logger.info("Registering pending session", transcript_path=transcript_path)
-    print(f"[Overlap] Registering session...", file=sys.stderr)
+    logger.stderr_log("Registering session...")
 
     try:
         # Build request data from session info
@@ -225,7 +225,7 @@ def register_pending_session(transcript_path: str) -> str | None:
             )
             logger.info("Session registered successfully",
                         overlap_session_id=overlap_session_id)
-            print(f"[Overlap] Session started: {overlap_session_id}", file=sys.stderr)
+            logger.stderr_log(f"Session started: {overlap_session_id}")
             return overlap_session_id
         else:
             logger.warn("No session_id in server response")
@@ -233,7 +233,7 @@ def register_pending_session(transcript_path: str) -> str | None:
 
     except Exception as e:
         logger.error("Failed to register pending session", exc=e)
-        print(f"[Overlap] Failed to register session: {e}", file=sys.stderr)
+        logger.stderr_log(f"Failed to register session: {e}")
         return None
 
 

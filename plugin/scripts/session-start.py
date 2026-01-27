@@ -46,7 +46,7 @@ def main():
         logger.info("Received input", input_keys=list(input_data.keys()))
     except json.JSONDecodeError as e:
         logger.error("Failed to parse stdin JSON", exc=e)
-        print(f"[Overlap] JSON decode error: {e}", file=sys.stderr)
+        logger.stderr_log(f"JSON decode error: {e}")
         sys.exit(0)
 
     # Check if this is a startup, resume, or compact
@@ -61,7 +61,7 @@ def main():
     # Check if configured
     if not is_configured():
         logger.info("Not configured - exiting")
-        print(f"[Overlap] Not configured - run /overlap:config first", file=sys.stderr)
+        logger.stderr_log("Not configured - run /overlap:config first")
         sys.exit(0)
     logger.info("Configuration OK")
 

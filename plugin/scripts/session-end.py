@@ -38,14 +38,14 @@ def main():
     # Check if configured
     if not is_configured():
         logger.info("Not configured, skipping")
-        print("[Overlap] SessionEnd: Not configured, skipping", file=sys.stderr)
+        logger.stderr_log("SessionEnd: Not configured, skipping")
         sys.exit(0)
 
     # Get transcript_path - this is our key for looking up the session
     transcript_path = input_data.get("transcript_path", "")
     if not transcript_path:
         logger.info("No transcript_path in input, skipping")
-        print("[Overlap] SessionEnd: No transcript_path, skipping", file=sys.stderr)
+        logger.stderr_log("SessionEnd: No transcript_path, skipping")
         sys.exit(0)
 
     # Expand ~ in path
@@ -56,7 +56,7 @@ def main():
 
     if not overlap_session_id:
         logger.info("No Overlap session found for transcript", transcript_path=transcript_path)
-        print("[Overlap] SessionEnd: No tracked session for this transcript", file=sys.stderr)
+        logger.stderr_log("SessionEnd: No tracked session for this transcript")
         sys.exit(0)
 
     logger.set_context(hook="SessionEnd", session_id=overlap_session_id)
@@ -64,16 +64,16 @@ def main():
     try:
         # End session on server
         logger.info("Ending session on server", overlap_session_id=overlap_session_id)
-        print(f"[Overlap] SessionEnd: Ending session {overlap_session_id}", file=sys.stderr)
+        logger.stderr_log(f"SessionEnd: Ending session {overlap_session_id}")
         api_request("POST", f"/api/v1/sessions/{overlap_session_id}/end", {}, timeout=4, retries=0)
         logger.info("Session ended successfully")
-        print(f"[Overlap] SessionEnd: Successfully ended session on server", file=sys.stderr)
+        logger.stderr_log("SessionEnd: Successfully ended session on server")
         # Only clear local state on success
         clear_session_for_transcript(transcript_path)
         logger.info("Local session mapping cleared", transcript_path=transcript_path)
     except Exception as e:
         logger.error("Failed to end session on server", exc=e)
-        print(f"[Overlap] Failed to end session (server will auto-expire): {e}", file=sys.stderr)
+        logger.stderr_log(f"Failed to end session (server will auto-expire): {e}")
 
     sys.exit(0)
 

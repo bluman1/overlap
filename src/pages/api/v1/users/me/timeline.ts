@@ -1,12 +1,12 @@
 import type { APIContext } from 'astro';
-import { authenticateRequest, errorResponse, successResponse } from '@lib/auth/middleware';
+import { authenticateAny, errorResponse, successResponse } from '@lib/auth/middleware';
 
 export async function GET(context: APIContext) {
   const { request } = context;
   const db = context.locals.runtime.env.DB;
 
-  // Authenticate
-  const authResult = await authenticateRequest(request, db);
+  // Authenticate (supports both web session and API tokens)
+  const authResult = await authenticateAny(request, db);
   if (!authResult.success) {
     return errorResponse(authResult.error, authResult.status);
   }
@@ -15,10 +15,14 @@ export async function GET(context: APIContext) {
   // Parse query params
   const url = new URL(request.url);
   const limitParam = url.searchParams.get('limit');
-  const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 50;
+  const offsetParam = url.searchParams.get('offset');
+  const rawLimit = limitParam ? parseInt(limitParam, 10) : 20;
+  const limit = Number.isNaN(rawLimit) ? 20 : Math.min(Math.max(rawLimit, 1), 100);
+  const rawOffset = offsetParam ? parseInt(offsetParam, 10) : 0;
+  const offset = Number.isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
 
   try {
-    // Get user's sessions with activity
+    // Get user's sessions with activity (fetch limit+1 for hasMore check)
     const result = await db
       .prepare(
         `SELECT
@@ -43,12 +47,15 @@ export async function GET(context: APIContext) {
         LEFT JOIN repos r ON s.repo_id = r.id
         WHERE s.user_id = ?
         ORDER BY s.started_at DESC
-        LIMIT ?`
+        LIMIT ? OFFSET ?`
       )
-      .bind(user.id, limit)
+      .bind(user.id, limit + 1, offset)
       .all();
 
-    const sessions = result.results.map((row: Record<string, unknown>) => {
+    const hasMore = result.results.length > limit;
+    const rows = hasMore ? result.results.slice(0, limit) : result.results;
+
+    const sessions = rows.map((row: Record<string, unknown>) => {
       let activities: Array<{
         id: string;
         files: string;
@@ -78,17 +85,26 @@ export async function GET(context: APIContext) {
         started_at: row.started_at,
         last_activity_at: row.last_activity_at,
         ended_at: row.ended_at,
-        activities: activities.map((a) => ({
-          id: a.id,
-          files: JSON.parse(a.files),
-          semantic_scope: a.semantic_scope,
-          summary: a.summary,
-          created_at: a.created_at,
-        })),
+        activities: activities.map((a) => {
+          let files: string[] = [];
+          try {
+            const parsed = JSON.parse(a.files);
+            files = Array.isArray(parsed) ? parsed : [];
+          } catch {
+            // Ignore malformed files JSON
+          }
+          return {
+            id: a.id,
+            files,
+            semantic_scope: a.semantic_scope,
+            summary: a.summary,
+            created_at: a.created_at,
+          };
+        }),
       };
     });
 
-    return successResponse({ sessions });
+    return successResponse({ sessions, hasMore });
   } catch (error) {
     console.error('Timeline error:', error);
     return errorResponse('Failed to fetch timeline', 500);

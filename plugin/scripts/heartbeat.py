@@ -108,7 +108,7 @@ def main():
 
     except Exception as e:
         logger.error("Heartbeat failed", exc=e, file_paths=relative_paths)
-        print(f"[Overlap] Heartbeat failed: {e}", file=sys.stderr)
+        logger.stderr_log(f"Heartbeat failed: {e}")
 
     sys.exit(0)
 
