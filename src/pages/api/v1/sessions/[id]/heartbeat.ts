@@ -48,6 +48,11 @@ export async function POST(context: APIContext) {
       return errorResponse('Session does not belong to user', 403);
     }
 
+    // Log reactivation of stale/ended sessions
+    if (session.status !== 'active') {
+      console.log(`Reactivating ${session.status} session ${sessionId} via heartbeat`);
+    }
+
     // Rate limit: skip if last activity was < 15s ago
     const HEARTBEAT_MIN_INTERVAL_SECONDS = 15;
     // SQLite datetime('now') produces UTC without timezone suffix -- ensure UTC parse
@@ -79,7 +84,9 @@ export async function POST(context: APIContext) {
       input.tool_name
     );
 
-    // Create activity record
+    const wasInactive = session.status !== 'active';
+
+    // Create activity record (also reactivates stale/ended sessions)
     const activity = await createActivity(db, {
       id: generateId(),
       session_id: sessionId,
@@ -92,6 +99,7 @@ export async function POST(context: APIContext) {
       activity_id: activity.id,
       semantic_scope: classification.scope,
       summary: classification.summary,
+      reactivated: wasInactive,
     });
   } catch (error) {
     console.error('Heartbeat error:', error);

@@ -253,7 +253,7 @@ export async function createSession(
 
 export async function updateSessionActivity(db: D1Database, sessionId: string): Promise<void> {
   await db
-    .prepare("UPDATE sessions SET last_activity_at = datetime('now'), status = 'active' WHERE id = ?")
+    .prepare("UPDATE sessions SET last_activity_at = datetime('now'), status = 'active', ended_at = NULL WHERE id = ?")
     .bind(sessionId)
     .run();
 }
@@ -292,9 +292,10 @@ export async function createActivity(
     )
     .bind(data.id, data.session_id, data.files, data.semantic_scope, data.summary);
 
+  // Reactivate session: set active, update timestamp, clear ended_at (handles stale/ended → active)
   const updateStmt = db
     .prepare(
-      "UPDATE sessions SET last_activity_at = datetime('now'), status = 'active' WHERE id = ?"
+      "UPDATE sessions SET last_activity_at = datetime('now'), status = 'active', ended_at = NULL WHERE id = ?"
     )
     .bind(data.session_id);
 

@@ -22,7 +22,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import logger
-from config import is_configured, get_session_entry, update_session_heartbeat_time
+from config import is_configured, get_session_entry, update_session_heartbeat_time, clear_session_for_transcript, save_session_for_transcript
 from api import api_request, ensure_session_registered
 from utils import extract_file_paths, make_relative, is_write_tool
 
@@ -117,13 +117,42 @@ def main():
             logger.debug("Heartbeat throttled (server-side)", retry_after=result.get("retry_after"))
         else:
             update_session_heartbeat_time(transcript_path, is_write=is_write)
+            if result.get("reactivated"):
+                logger.info("Session reactivated via heartbeat", session_id=overlap_session_id)
+                logger.stderr_log(f"Session reactivated: {overlap_session_id}")
             logger.info("Heartbeat sent",
                         file_paths=relative_paths,
                         scope=result.get("semantic_scope"))
 
     except Exception as e:
+        error_msg = str(e)
         logger.error("Heartbeat failed", exc=e, file_paths=relative_paths)
-        logger.stderr_log(f"Heartbeat failed: {e}")
+
+        # Recovery: if server returns 404 (session not found), clear local entry
+        # and re-register on next tool use. This handles cases where the server
+        # DB was reset or the session was deleted.
+        if "404" in error_msg or "not found" in error_msg.lower():
+            logger.warn("Session not found on server, clearing local entry for re-registration",
+                        overlap_session_id=overlap_session_id)
+            clear_session_for_transcript(transcript_path)
+            # Try to re-register immediately
+            new_id = ensure_session_registered(transcript_path, session_id, cwd)
+            if new_id:
+                logger.info("Re-registered session after 404", new_session_id=new_id)
+                logger.stderr_log(f"Session re-registered: {new_id}")
+                # Retry the heartbeat with the new session ID
+                try:
+                    api_request("POST", f"/api/v1/sessions/{new_id}/heartbeat", {
+                        "files": relative_paths,
+                        "tool_name": tool_name,
+                    }, timeout=4, retries=0)
+                    update_session_heartbeat_time(transcript_path, is_write=is_write)
+                except Exception as retry_err:
+                    logger.error("Retry heartbeat after re-register failed", exc=retry_err)
+            else:
+                logger.stderr_log("Session lost - will re-register on next tool use")
+        else:
+            logger.stderr_log(f"Heartbeat failed: {e}")
 
     sys.exit(0)
 
