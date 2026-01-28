@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { UserAccordion } from './UserAccordion';
 
 type UserActivitySummary = {
@@ -16,6 +16,20 @@ export function UserActivityList({ showStale }: UserActivityListProps) {
   const [users, setUsers] = useState<UserActivitySummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
+
+  const handleToggle = useCallback((userId: string, expanded: boolean) => {
+    setExpandedUsers((prev) => {
+      const next = new Set(prev);
+      if (expanded) {
+        next.add(userId);
+      } else {
+        next.delete(userId);
+      }
+      return next;
+    });
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -33,6 +47,13 @@ export function UserActivityList({ showStale }: UserActivityListProps) {
 
       const data = (await response.json()) as { data: { users: UserActivitySummary[] } };
       setUsers(data.data.users);
+
+      // Auto-expand first user on initial load
+      if (isFirstLoad.current && data.data.users.length > 0) {
+        setExpandedUsers(new Set([data.data.users[0].userId]));
+        isFirstLoad.current = false;
+      }
+
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load users');
@@ -94,7 +115,13 @@ export function UserActivityList({ showStale }: UserActivityListProps) {
   return (
     <div>
       {users.map((user) => (
-        <UserAccordion key={user.userId} user={user} showStale={showStale} />
+        <UserAccordion
+          key={user.userId}
+          user={user}
+          showStale={showStale}
+          isExpanded={expandedUsers.has(user.userId)}
+          onToggle={handleToggle}
+        />
       ))}
     </div>
   );

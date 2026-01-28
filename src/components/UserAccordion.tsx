@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ActivityCard } from './ActivityCard';
 import { formatRelativeTime } from '@lib/utils/time';
 import { fetchWithTimeout } from '@lib/utils/fetch';
@@ -30,18 +30,20 @@ type UserActivitySummary = {
 type UserAccordionProps = {
   user: UserActivitySummary;
   showStale: boolean;
+  isExpanded: boolean;
+  onToggle: (userId: string, expanded: boolean) => void;
 };
 
 const PAGE_SIZE = 20;
 
-export function UserAccordion({ user, showStale }: UserAccordionProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function UserAccordion({ user, showStale, isExpanded, onToggle }: UserAccordionProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
 
   const fetchSessions = useCallback(
     async (currentOffset: number, append: boolean = false) => {
@@ -89,25 +91,37 @@ export function UserAccordion({ user, showStale }: UserAccordionProps) {
   );
 
   const handleToggle = () => {
-    if (!isExpanded && sessions.length === 0) {
+    const willExpand = !isExpanded;
+    if (willExpand && !hasFetched.current) {
       fetchSessions(0);
+      hasFetched.current = true;
     }
-    setIsExpanded(!isExpanded);
+    onToggle(user.userId, willExpand);
   };
 
   const handleLoadMore = () => {
     fetchSessions(offset, true);
   };
 
-  // Refetch when showStale changes (fetchSessions identity changes via [showStale] dep).
-  // Intentionally omits isExpanded — we only want to re-fetch on filter change, not on expand toggle.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Fetch on mount if already expanded (e.g. first user auto-expanded)
   useEffect(() => {
-    if (isExpanded) {
-      setOffset(0);
+    if (isExpanded && !hasFetched.current) {
       fetchSessions(0);
+      hasFetched.current = true;
     }
-  }, [fetchSessions]);
+  }, [isExpanded, fetchSessions]);
+
+  // Refetch when showStale changes while expanded
+  const prevShowStale = useRef(showStale);
+  useEffect(() => {
+    if (prevShowStale.current !== showStale) {
+      prevShowStale.current = showStale;
+      if (isExpanded) {
+        setOffset(0);
+        fetchSessions(0);
+      }
+    }
+  }, [showStale, isExpanded, fetchSessions]);
 
   return (
     <div
