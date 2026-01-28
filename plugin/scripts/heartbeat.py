@@ -7,7 +7,8 @@ Collects the files being worked on and sends them for classification.
 
 If this is the first tool use, lazily registers the session with the server.
 
-No throttling — every tool use sends a heartbeat immediately for real-time updates.
+Minimal 2-second throttle per tool category (read vs write) to prevent process exhaustion,
+while keeping updates near-real-time. The SSE stream checks for changes every 1 second.
 """
 
 import json
@@ -18,7 +19,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import logger
-from config import is_configured, update_session_heartbeat_time, clear_session_for_transcript
+from config import is_configured, get_session_entry, update_session_heartbeat_time, clear_session_for_transcript
 from api import api_request, ensure_session_registered
 from utils import extract_file_paths, make_relative, is_write_tool
 
@@ -64,8 +65,23 @@ def main():
     tool_name = input_data.get("tool_name", "")
     is_write = is_write_tool(tool_name)
 
-    # No throttle — every tool use sends a heartbeat immediately.
-    # The SSE stream picks up changes within ~1 second.
+    # Minimal client-side throttle (2s per category) to prevent process exhaustion.
+    # Reads and writes have separate timers so a write is never blocked by a recent read.
+    THROTTLE_SECONDS = 2
+    entry = get_session_entry(transcript_path)
+    if entry:
+        from datetime import datetime, timezone
+        ts_field = "last_write_heartbeat_at" if is_write else "last_read_heartbeat_at"
+        last_hb = entry.get(ts_field)
+        if last_hb:
+            try:
+                last_dt = datetime.fromisoformat(last_hb)
+                elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds()
+                if elapsed < THROTTLE_SECONDS:
+                    logger.debug("Heartbeat throttled", elapsed=elapsed, tool=tool_name)
+                    sys.exit(0)
+            except (ValueError, TypeError):
+                pass
 
     # Extract file paths from tool input
     tool_input = input_data.get("tool_input", {})
